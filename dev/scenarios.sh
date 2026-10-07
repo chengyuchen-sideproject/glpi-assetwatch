@@ -12,6 +12,9 @@ set -uo pipefail
 DEV_DIR="$(cd "$(dirname "$0")" && pwd)"
 COMPOSE=(docker compose -f "$DEV_DIR/docker-compose.yml")
 PY="${PYTHON:-python}"
+# Windows Python defaults to the ANSI code page and writes CRLF; force UTF-8 and
+# strip CR so Chinese subjects match and IDs work in URLs (no-op on Linux).
+py() { PYTHONUTF8=1 "$PY" "$@" | tr -d '\r'; }
 PASS=0
 FAIL=0
 
@@ -20,7 +23,7 @@ sql() { "${COMPOSE[@]}" exec -T mariadb mariadb -uglpi -pglpi glpi -N -B -e "$1"
 cron() { "${COMPOSE[@]}" exec -T glpi php front/cron.php --force "$1" >/dev/null; }
 # GLPI stores last_inventory_update with 1-second precision: two inventories of the
 # same machine within one second look like "no new inventory", hence the pause.
-agent() { sleep 1.1; "$PY" "$DEV_DIR/fake_agent.py" "$@" >/dev/null || { echo "agent failed: $*"; FAIL=$((FAIL + 1)); }; }
+agent() { sleep 1.1; py "$DEV_DIR/fake_agent.py" "$@" >/dev/null || { echo "agent failed: $*"; FAIL=$((FAIL + 1)); }; }
 glpi_action() { "${COMPOSE[@]}" exec -T glpi php plugins/assetwatch/dev/glpi_actions.php "$@"; }
 mails() { curl -s "http://localhost:8025/api/v1/messages?limit=200"; }
 
@@ -50,32 +53,35 @@ flush_mail() {
         sleep 3
     done
     sleep 2
-    echo "  (queue left: $(sql "SELECT COUNT(*) FROM glpi_queuednotifications WHERE is_deleted=0"), sent: $(sql "SELECT COUNT(*) FROM glpi_queuednotifications WHERE is_deleted=1"), in Mailpit: $(mails | "$PY" -c "import json,sys; print(json.load(sys.stdin).get('total', '?'))"))"
+    echo "  (queue left: $(sql "SELECT COUNT(*) FROM glpi_queuednotifications WHERE is_deleted=0"), sent: $(sql "SELECT COUNT(*) FROM glpi_queuednotifications WHERE is_deleted=1"), in Mailpit: $(mails | py -c "import json,sys; print(json.load(sys.stdin).get('total', '?'))"))"
 }
 
 mail_text_count() {
     # mail_text_count <substring of the plain-text body>
     local total=0
-    for id in $(mails | "$PY" -c "import json,sys; [print(m['ID']) for m in json.load(sys.stdin).get('messages', [])]"); do
-        total=$((total + $(curl -s "http://localhost:8025/api/v1/message/$id" | "$PY" -c "import json,sys; print(1 if sys.argv[1] in json.load(sys.stdin).get('Text', '') else 0)" "$1")))
+    for id in $(mails | py -c "import json,sys; [print(m['ID']) for m in json.load(sys.stdin).get('messages', [])]"); do
+        total=$((total + $(curl -s "http://localhost:8025/api/v1/message/$id" | py -c "import json,sys; print(1 if sys.argv[1] in json.load(sys.stdin).get('Text', '') else 0)" "$1")))
     done
     echo "$total"
 }
 
 mail_debug() {
     sql "SELECT id, itemtype, event, mode, sent_try, is_deleted, LEFT(name, 80) FROM glpi_queuednotifications ORDER BY id" | head -20
-    mails | "$PY" -c "import json,sys; [print('   mail:', m.get('Subject')) for m in json.load(sys.stdin).get('messages', [])]"
+    mails | py -c "import json,sys; [print('   mail:', m.get('Subject')) for m in json.load(sys.stdin).get('messages', [])]"
     "${COMPOSE[@]}" exec -T glpi sh -c 'tail -n 30 /var/glpi/logs/mail-error.log 2>/dev/null; tail -n 30 /var/glpi/logs/mail.log 2>/dev/null' || true
 }
 
 mail_count() {
     # mail_count <subject substring>
-    mails | "$PY" -c "import json,sys; d=json.load(sys.stdin); print(sum(1 for m in d.get('messages', []) if sys.argv[1] in m.get('Subject', '')))" "$1"
+    mails | py -c "import json,sys; d=json.load(sys.stdin); print(sum(1 for m in d.get('messages', []) if sys.argv[1] in m.get('Subject', '')))" "$1"
 }
 
 log "Reset plugin data, Mailpit and test machines"
-sql "DELETE FROM glpi_plugin_assetwatch_alerts; DELETE FROM glpi_plugin_assetwatch_snapshots; DELETE FROM glpi_plugin_assetwatch_digests; DELETE FROM glpi_queuednotifications;"
 sql "DELETE FROM glpi_items_racks WHERE itemtype='Computer' AND items_id IN (SELECT id FROM glpi_computers WHERE name IN ('aw-web01','aw-web02','aw-win01'));"
+# Leftover machines from a previous run carry changed IP/MAC; the image's background
+# cron could baseline that old state mid-run and raise a spurious identity alert.
+glpi_action purge aw-web01 aw-web02 aw-win01
+sql "DELETE FROM glpi_plugin_assetwatch_alerts; DELETE FROM glpi_plugin_assetwatch_snapshots; DELETE FROM glpi_plugin_assetwatch_digests; DELETE FROM glpi_queuednotifications;"
 curl -s -X DELETE http://localhost:8025/api/v1/messages >/dev/null
 
 log "1. First inventories only record a baseline"
@@ -94,7 +100,7 @@ cron AssetwatchChanges
 expect "identical inventory raises nothing" 0 "$(count_alerts '1=1')"
 
 log "3. Hardware change: memory module and one drive removed"
-WEB01_D1=$("$PY" "$DEV_DIR/fake_agent.py" aw-web01 --dump | "$PY" -c "import json,sys; print(json.load(sys.stdin)['content']['storages'][0]['serial'])")
+WEB01_D1=$(py "$DEV_DIR/fake_agent.py" aw-web01 --dump | py -c "import json,sys; print(json.load(sys.stdin)['content']['storages'][0]['serial'])")
 agent aw-web01 --memory 16384 --drives "$WEB01_D1:953869"
 cron AssetwatchChanges
 expect "hardware alert on aw-web01" 1 "$(count_alerts "alert_type='hardware' AND item_name='aw-web01'")"
@@ -148,7 +154,7 @@ cron AssetwatchStatus
 OPEN_ID=$(sql "SELECT id FROM glpi_plugin_assetwatch_alerts WHERE alert_type='disk_low' AND status=1 ORDER BY id DESC LIMIT 1")
 WEB01_ID=$(sql "SELECT id FROM glpi_computers WHERE name='aw-web01'")
 PROFILE_ID=$(sql "SELECT id FROM glpi_profiles WHERE name='Super-Admin'")
-if "$PY" "$DEV_DIR/ui_smoke.py" --alert-id "$OPEN_ID" --computer-id "$WEB01_ID" --profile-id "$PROFILE_ID"; then
+if py "$DEV_DIR/ui_smoke.py" --alert-id "$OPEN_ID" --computer-id "$WEB01_ID" --profile-id "$PROFILE_ID"; then
     PASS=$((PASS + 1))
 else
     FAIL=$((FAIL + 1))
@@ -166,8 +172,8 @@ expect "zh_TW rack mail subject" 1 "$(mail_count '[資產監看] 機櫃位置變
 expect "zh_TW digest mail subject" 1 "$(mail_count '[資產監看] Server Team')"
 expect "resolved notice shows current free space" 1 "$(mail_text_count '[C:] 剩 40.0 GB')"
 expect "rack field label translated" 1 "$(mail_text_count '機櫃位置 [新增]：+ R03 / U5')"
-for id in $(mails | "$PY" -c "import json,sys; [print(m['ID']) for m in json.load(sys.stdin).get('messages', [])]"); do
-    curl -s "http://localhost:8025/api/v1/message/$id" | "$PY" -c "
+for id in $(mails | py -c "import json,sys; [print(m['ID']) for m in json.load(sys.stdin).get('messages', [])]"); do
+    curl -s "http://localhost:8025/api/v1/message/$id" | py -c "
 import json, sys
 m = json.load(sys.stdin)
 print('  ---', m.get('Subject'))
@@ -197,6 +203,9 @@ expect "reinstall: 3 automatic actions in CLI mode" 3 "$(sql "SELECT COUNT(*) FR
 expect "reinstall: Super-Admin has full alert rights" 257 "$(sql "SELECT pr.rights FROM glpi_profilerights pr JOIN glpi_profiles p ON p.id=pr.profiles_id WHERE p.name='Super-Admin' AND pr.name='plugin_assetwatch_alert'")"
 "${COMPOSE[@]}" exec -T glpi php bin/console plugin:install --username=glpi --force assetwatch >/dev/null
 expect "re-running install does not duplicate notifications" 4 "$(sql "SELECT COUNT(*) FROM glpi_notifications WHERE itemtype LIKE 'PluginAssetwatch%'")"
+# A forced install leaves the plugin deactivated; re-activate so the stack stays usable
+# (and a second run of this script works).
+"${COMPOSE[@]}" exec -T glpi php bin/console plugin:activate assetwatch >/dev/null
 
 printf '\n%d passed, %d failed\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]

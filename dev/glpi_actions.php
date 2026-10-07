@@ -5,6 +5,7 @@
  *
  *   php plugins/assetwatch/dev/glpi_actions.php rack-place <computer name> <rack name> <position>
  *   php plugins/assetwatch/dev/glpi_actions.php rack-remove <computer name>
+ *   php plugins/assetwatch/dev/glpi_actions.php purge <computer name>...
  *
  * Goes through GLPI objects (not raw SQL) so that plugin hooks fire exactly
  * as when a technician edits the rack in the web UI.
@@ -73,6 +74,17 @@ switch ($action) {
         if ($relation->getFromDBByCrit(['itemtype' => 'Computer', 'items_id' => $computer->getID()])) {
             $relation->delete(['id' => $relation->getID()], true);
             echo "removed {$argv[2]} from rack\n";
+        }
+        exit(0);
+
+    case 'purge':
+        // Remove test computers entirely (with ports, disks, components...) so a
+        // re-run starts from the same empty state as a fresh stack.
+        foreach (array_slice($argv, 2) as $name) {
+            $computer = new Computer();
+            foreach ($computer->find(['name' => $name]) as $row) {
+                $computer->delete(['id' => $row['id']], true);
+            }
         }
         exit(0);
 
