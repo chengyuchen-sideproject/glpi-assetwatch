@@ -17,8 +17,6 @@ define('PLUGIN_ASSETWATCH_VERSION', '1.0.0');
 define('PLUGIN_ASSETWATCH_MIN_GLPI', '10.0.0');
 define('PLUGIN_ASSETWATCH_MAX_GLPI', '10.0.99');
 
-require_once __DIR__ . '/src/autoload.php';
-
 /**
  * Plugin initialization, called on every GLPI page load.
  */

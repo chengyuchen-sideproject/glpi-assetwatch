@@ -7,10 +7,11 @@
  */
 
 /**
- * Minimal PSR-4 autoloader for the GlpiPlugin\Assetwatch namespace.
+ * Minimal PSR-4 autoloader for the GlpiPlugin\Assetwatch namespace, used by
+ * the unit tests (tests/bootstrap.php) to load src/Core without GLPI.
  *
- * GLPI 10 does not autoload namespaced plugin classes without composer,
- * and this plugin intentionally ships without third-party dependencies.
+ * Inside GLPI it is not needed: Plugin::load() registers a PSR-4 loader for
+ * the plugin's src/ directory itself.
  */
 spl_autoload_register(static function (string $class): void {
     $prefix = 'GlpiPlugin\\Assetwatch\\';
