@@ -18,7 +18,9 @@ FAIL=0
 log() { printf '\n== %s\n' "$*"; }
 sql() { "${COMPOSE[@]}" exec -T mariadb mariadb -uglpi -pglpi glpi -N -B -e "$1"; }
 cron() { "${COMPOSE[@]}" exec -T glpi php front/cron.php --force "$1" >/dev/null; }
-agent() { "$PY" "$DEV_DIR/fake_agent.py" "$@" >/dev/null || { echo "agent failed: $*"; FAIL=$((FAIL + 1)); }; }
+# GLPI stores last_inventory_update with 1-second precision: two inventories of the
+# same machine within one second look like "no new inventory", hence the pause.
+agent() { sleep 1.1; "$PY" "$DEV_DIR/fake_agent.py" "$@" >/dev/null || { echo "agent failed: $*"; FAIL=$((FAIL + 1)); }; }
 glpi_action() { "${COMPOSE[@]}" exec -T glpi php plugins/assetwatch/dev/glpi_actions.php "$@"; }
 mails() { curl -s "http://localhost:8025/api/v1/messages?limit=200"; }
 
@@ -34,6 +36,10 @@ expect() {
 }
 
 count_alerts() { sql "SELECT COUNT(*) FROM glpi_plugin_assetwatch_alerts WHERE $1"; }
+
+# Text columns follow GLPI 10 storage convention: "&", "<", ">" are HTML-encoded.
+ARROW='-&#62;'
+
 
 flush_mail() {
     cron queuednotification
@@ -69,7 +75,7 @@ WEB01_D1=$("$PY" "$DEV_DIR/fake_agent.py" aw-web01 --dump | "$PY" -c "import jso
 agent aw-web01 --memory 16384 --drives "$WEB01_D1:953869"
 cron AssetwatchChanges
 expect "hardware alert on aw-web01" 1 "$(count_alerts "alert_type='hardware' AND item_name='aw-web01'")"
-expect "memory + drive listed" 1 "$(count_alerts "alert_type='hardware' AND summary LIKE '%memory 32 GB -> 16 GB%' AND summary LIKE '%drive -%'")"
+expect "memory + drive listed" 1 "$(count_alerts "alert_type='hardware' AND summary LIKE '%memory 32 GB $ARROW 16 GB%' AND summary LIKE '%drive -%'")"
 
 log "4. Identity change: IP and MAC of aw-web02"
 agent aw-web02 --ip 10.99.0.2 --mac 00:11:22:33:44:55
@@ -96,7 +102,7 @@ glpi_action rack-place aw-web01 R01 10 >/dev/null
 glpi_action rack-place aw-web01 R02 20 >/dev/null
 glpi_action rack-remove aw-web01 >/dev/null
 expect "3 rack events (added, moved, removed)" 3 "$(count_alerts "alert_type='rack' AND item_name='aw-web01'")"
-expect "move described with old and new rack" 1 "$(count_alerts "alert_type='rack' AND summary LIKE '%R01 / U10 -> %R02 / U20%'")"
+expect "move described with old and new rack" 1 "$(count_alerts "alert_type='rack' AND summary LIKE '%R01 / U10 $ARROW R02 / U20%'")"
 
 log "8. Recovery"
 agent aw-win01 --os windows --disk C::51200:40960
@@ -112,6 +118,26 @@ expect "hardware change mail" 1 "$(mail_count 'Hardware change: aw-web01')"
 expect "identity change mail" 1 "$(mail_count 'Identity change: aw-web02')"
 expect "rack change mails" 3 "$(mail_count 'Rack placement change: aw-web01')"
 expect "status digest mails" 3 "$(mail_count '[Asset Watch] Server Team')"
+
+log "10. Web UI (pages, tabs, forms)"
+agent aw-win01 --os windows --disk C::51200:1024
+cron AssetwatchStatus
+OPEN_ID=$(sql "SELECT id FROM glpi_plugin_assetwatch_alerts WHERE alert_type='disk_low' AND status=1 ORDER BY id DESC LIMIT 1")
+WEB01_ID=$(sql "SELECT id FROM glpi_computers WHERE name='aw-web01'")
+PROFILE_ID=$(sql "SELECT id FROM glpi_profiles WHERE name='Super-Admin'")
+if "$PY" "$DEV_DIR/ui_smoke.py" --alert-id "$OPEN_ID" --computer-id "$WEB01_ID" --profile-id "$PROFILE_ID"; then
+    PASS=$((PASS + 1))
+else
+    FAIL=$((FAIL + 1))
+fi
+expect "acknowledged alert has status 2" 2 "$(sql "SELECT status FROM glpi_plugin_assetwatch_alerts WHERE id=$OPEN_ID")"
+
+log "11. No PHP error mentioning the plugin"
+ERRORS=$("${COMPOSE[@]}" exec -T glpi sh -c 'cat /var/glpi/logs/php-errors.log 2>/dev/null | grep -ci assetwatch' || true)
+expect "php-errors.log clean" 0 "${ERRORS:-0}"
+if [ "${ERRORS:-0}" != "0" ]; then
+    "${COMPOSE[@]}" exec -T glpi sh -c 'grep -i -B2 -A8 assetwatch /var/glpi/logs/php-errors.log | tail -60'
+fi
 
 printf '\n%d passed, %d failed\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]
