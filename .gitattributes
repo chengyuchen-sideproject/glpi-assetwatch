@@ -1,0 +1,11 @@
+* text=auto eol=lf
+*.mo binary
+
+# Not shipped in release archives (git archive / GitHub source zip)
+/.github export-ignore
+/dev export-ignore
+/tests export-ignore
+/tools export-ignore
+/phpunit.xml.dist export-ignore
+/.gitattributes export-ignore
+/.gitignore export-ignore

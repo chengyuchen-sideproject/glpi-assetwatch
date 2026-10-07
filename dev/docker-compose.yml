@@ -1,0 +1,54 @@
+# Asset Watch - local development / test stack.
+#
+# Mirrors the production layout (official glpi/glpi:10.0.20 + mariadb:10.11)
+# without nginx/SSL, plus Mailpit to catch every e-mail GLPI sends.
+#
+#   GLPI     http://localhost:8080   (glpi / glpi)
+#   Mailpit  http://localhost:8025
+#
+# The repository root is mounted as /var/www/glpi/plugins/assetwatch.
+
+name: assetwatch-dev
+
+services:
+  mariadb:
+    image: mariadb:10.11
+    environment:
+      MARIADB_ROOT_PASSWORD: root
+      MARIADB_DATABASE: glpi
+      MARIADB_USER: glpi
+      MARIADB_PASSWORD: glpi
+    volumes:
+      - db:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  glpi:
+    image: glpi/glpi:10.0.20
+    environment:
+      TIMEZONE: Asia/Taipei
+      GLPI_DB_HOST: mariadb
+      GLPI_DB_PORT: "3306"
+      GLPI_DB_NAME: glpi
+      GLPI_DB_USER: glpi
+      GLPI_DB_PASSWORD: glpi
+    volumes:
+      - glpi:/var/glpi
+      - ..:/var/www/glpi/plugins/assetwatch
+    ports:
+      - "8080:80"
+    depends_on:
+      mariadb:
+        condition: service_healthy
+
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - "8025:8025"
+
+volumes:
+  db:
+  glpi:

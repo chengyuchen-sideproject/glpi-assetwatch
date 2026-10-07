@@ -1,0 +1,69 @@
+{#
+ # Asset Watch - GLPI plugin
+ # "Asset alerts" tab on an asset: alert history + current baseline.
+ # @license GPL-3.0-or-later
+ #}
+
+<div class="container-fluid">
+   <h3 class="mt-2"><i class="ti ti-heartbeat me-2"></i>{{ __('Alerts', 'assetwatch') }}</h3>
+   {% if alerts is empty %}
+      <p class="text-muted">{{ __('No alert for this asset.', 'assetwatch') }}</p>
+   {% else %}
+      <div class="table-responsive">
+         <table class="table table-sm table-hover card-table">
+            <thead>
+               <tr>
+                  <th>{{ __('Creation date') }}</th>
+                  <th>{{ _n('Type', 'Types', 1) }}</th>
+                  <th>{{ __('Status') }}</th>
+                  <th>{{ __('Details', 'assetwatch') }}</th>
+               </tr>
+            </thead>
+            <tbody>
+               {% for alert in alerts %}
+                  <tr class="{{ alert.status in is_open ? 'fw-bold' : '' }}">
+                     <td><a href="{{ alert.url }}">{{ alert.date_creation|formatted_datetime }}</a></td>
+                     <td>{{ alert.type_label }}</td>
+                     <td>{{ alert.status_label }}</td>
+                     <td>
+                        {% for line in alert.lines %}
+                           <div>{{ line }}</div>
+                        {% endfor %}
+                     </td>
+                  </tr>
+               {% endfor %}
+            </tbody>
+         </table>
+      </div>
+   {% endif %}
+
+   {% if snapshot is not null %}
+      <h3 class="mt-4"><i class="ti ti-camera me-2"></i>{{ __('Baseline used for comparisons', 'assetwatch') }}</h3>
+      <p class="text-muted">
+         {{ __('Inventory date') }}: {{ snapshot.inventory_date|formatted_datetime }}
+      </p>
+      {% set s = snapshot.content %}
+      <dl class="row">
+         <dt class="col-sm-3">{{ __('Name') }}</dt>
+         <dd class="col-sm-9">{{ s.name }}</dd>
+         <dt class="col-sm-3">{{ __('Serial number') }}</dt>
+         <dd class="col-sm-9">{{ s.serial }}</dd>
+         <dt class="col-sm-3">{{ _n('Memory', 'Memories', 1) }}</dt>
+         <dd class="col-sm-9">{{ s.memory_mb }} MB</dd>
+         <dt class="col-sm-3">{{ _n('Processor', 'Processors', 2) }}</dt>
+         <dd class="col-sm-9">
+            {% for label, count in s.cpus %}<div>{{ label }} x{{ count }}</div>{% endfor %}
+         </dd>
+         <dt class="col-sm-3">{{ _n('Hard drive', 'Hard drives', 2) }}</dt>
+         <dd class="col-sm-9">
+            {% for key, label in s.drives %}<div>{{ label }} <span class="text-muted">{{ key }}</span></div>{% endfor %}
+         </dd>
+         <dt class="col-sm-3">{{ __('MAC') }}</dt>
+         <dd class="col-sm-9">{{ s.macs|join(', ') }}</dd>
+         <dt class="col-sm-3">{{ __('IP') }}</dt>
+         <dd class="col-sm-9">{{ s.ips|join(', ') }}</dd>
+      </dl>
+   {% elseif is_computer %}
+      <p class="text-muted mt-3">{{ __('No baseline yet: it is recorded after the next inventory.', 'assetwatch') }}</p>
+   {% endif %}
+</div>

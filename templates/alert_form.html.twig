@@ -1,0 +1,107 @@
+{#
+ # Asset Watch - GLPI plugin
+ # Alert detail + acknowledge form.
+ # @license GPL-3.0-or-later
+ #}
+
+<div class="container-fluid">
+   <div class="card mb-3">
+      <div class="card-header">
+         <h3 class="card-title">
+            <i class="ti ti-heartbeat me-2"></i>
+            {{ type_label }} &mdash;
+            {% if item_url %}
+               <a href="{{ item_url }}">{{ alert.item_name }}</a>
+            {% else %}
+               {{ alert.item_name }}
+            {% endif %}
+         </h3>
+         <span class="badge ms-auto
+            {% if alert.status == 1 %}bg-red-lt{% elseif alert.status == 2 %}bg-yellow-lt{% elseif alert.status == 3 %}bg-green-lt{% else %}bg-blue-lt{% endif %}">
+            {{ status_label }}
+         </span>
+      </div>
+      <div class="card-body">
+         <dl class="row mb-0">
+            <dt class="col-sm-3">{{ __('Item type') }}</dt>
+            <dd class="col-sm-9">{{ item_type }}</dd>
+
+            <dt class="col-sm-3">{{ __('Details', 'assetwatch') }}</dt>
+            <dd class="col-sm-9">
+               {% for line in lines %}
+                  <div>{{ line }}</div>
+               {% endfor %}
+            </dd>
+
+            <dt class="col-sm-3">{{ __('Group in charge') }}</dt>
+            <dd class="col-sm-9">
+               {% if group %}{{ group }}{% else %}<span class="text-warning">{{ __('None: nobody is notified', 'assetwatch') }}</span>{% endif %}
+            </dd>
+
+            <dt class="col-sm-3">{{ __('Creation date') }}</dt>
+            <dd class="col-sm-9">{{ alert.date_creation|formatted_datetime }}</dd>
+
+            {% if alert.date_last_notified %}
+               <dt class="col-sm-3">{{ __('Last notification', 'assetwatch') }}</dt>
+               <dd class="col-sm-9">{{ alert.date_last_notified|formatted_datetime }}</dd>
+            {% endif %}
+
+            {% if alert.date_resolved %}
+               <dt class="col-sm-3">{{ __('Resolution date') }}</dt>
+               <dd class="col-sm-9">{{ alert.date_resolved|formatted_datetime }}</dd>
+            {% endif %}
+
+            {% if ack_user %}
+               <dt class="col-sm-3">{{ __('Acknowledged by', 'assetwatch') }}</dt>
+               <dd class="col-sm-9">
+                  {{ ack_user }} ({{ alert.date_ack|formatted_datetime }})
+                  {% if alert.ack_comment %}<div class="text-muted">{{ alert.ack_comment }}</div>{% endif %}
+                  {% if is_acked %}
+                     <div>
+                        {% if alert.date_ack_until %}
+                           {{ __('Silenced until', 'assetwatch') }}: {{ alert.date_ack_until|formatted_datetime }}
+                        {% else %}
+                           {{ __('Silenced until resolved', 'assetwatch') }}
+                        {% endif %}
+                     </div>
+                  {% endif %}
+               </dd>
+            {% endif %}
+         </dl>
+      </div>
+   </div>
+
+   {% if can_ack %}
+      <div class="card">
+         <div class="card-header">
+            <h3 class="card-title">{{ __('Acknowledge', 'assetwatch') }}</h3>
+         </div>
+         <div class="card-body">
+            <p class="text-muted">
+               {{ __('An acknowledged alert stops sending reminders. It is still closed (and a "resolved" notice sent) when the problem disappears.', 'assetwatch') }}
+            </p>
+            <form method="post" action="{{ form_url }}">
+               <input type="hidden" name="id" value="{{ alert.id }}">
+               <input type="hidden" name="_glpi_csrf_token" value="{{ csrf_token() }}">
+               <div class="mb-3">
+                  <label class="form-label" for="ack_comment">{{ __('Comment') }}</label>
+                  <textarea class="form-control" id="ack_comment" name="ack_comment" rows="2">{{ alert.ack_comment }}</textarea>
+               </div>
+               <div class="mb-3">
+                  <label class="form-label" for="date_ack_until">{{ __('Silence reminders until (empty = until resolved)', 'assetwatch') }}</label>
+                  <input type="datetime-local" class="form-control" style="max-width: 20rem" id="date_ack_until" name="date_ack_until"
+                         value="{{ alert.date_ack_until ? alert.date_ack_until|date('Y-m-d\\TH:i') : '' }}">
+               </div>
+               <button type="submit" name="acknowledge" value="1" class="btn btn-primary">
+                  <i class="ti ti-check me-1"></i>{{ __('Acknowledge', 'assetwatch') }}
+               </button>
+               {% if is_acked %}
+                  <button type="submit" name="unacknowledge" value="1" class="btn btn-outline-secondary ms-2">
+                     <i class="ti ti-bell-ringing me-1"></i>{{ __('Resume reminders', 'assetwatch') }}
+                  </button>
+               {% endif %}
+            </form>
+         </div>
+      </div>
+   {% endif %}
+</div>

@@ -1,0 +1,389 @@
+# Asset Watch - GLPI plugin translations
+# This file is distributed under the same license as the plugin (GPL-3.0-or-later).
+msgid ""
+msgstr ""
+"Project-Id-Version: assetwatch\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+
+#: front/alert.form.php:30
+msgid "Alert acknowledged."
+msgstr "告警已確認。"
+
+#: front/alert.form.php:33
+msgid "Acknowledgement removed: reminders resume."
+msgstr "已取消確認：恢復提醒。"
+
+#: front/config.form.php:21
+msgid "Configuration saved."
+msgstr "設定已儲存。"
+
+#: inc/alert.class.php:52 inc/profile.class.php:23 inc/profile.class.php:68 templates/config.html.twig:8
+msgid "Asset Watch"
+msgstr "資產監看"
+
+#: inc/alert.class.php:84 templates/alert_form.html.twig:77 templates/alert_form.html.twig:96
+msgid "Acknowledge"
+msgstr "確認告警"
+
+#: inc/alert.class.php:108
+msgid "No inventory"
+msgstr "沒回報"
+
+#: inc/alert.class.php:109 templates/config.html.twig:32
+msgid "Low disk space"
+msgstr "硬碟空間不足"
+
+#: inc/alert.class.php:110 inc/notificationtargetalert.class.php:23
+msgid "Hardware change"
+msgstr "硬體變動"
+
+#: inc/alert.class.php:111 inc/notificationtargetalert.class.php:24
+msgid "Identity change"
+msgstr "身分變動"
+
+#: inc/alert.class.php:112 inc/notificationtargetalert.class.php:25 templates/config.html.twig:35
+msgid "Rack placement change"
+msgstr "機櫃位置變更"
+
+#: inc/alert.class.php:122
+msgid "Active"
+msgstr "觸發中"
+
+#: inc/alert.class.php:123
+msgid "Acknowledged"
+msgstr "已確認"
+
+#: inc/alert.class.php:124 inc/notificationtargetdigest.class.php:43
+msgid "Resolved"
+msgstr "已恢復"
+
+#: inc/alert.class.php:125 inc/notificationtargetalert.class.php:91
+msgid "Event"
+msgstr "事件"
+
+#: inc/alert.class.php:157
+msgid "Added"
+msgstr "新增"
+
+#: inc/alert.class.php:158
+msgid "Removed"
+msgstr "移除"
+
+#: inc/alert.class.php:159
+msgid "Increased"
+msgstr "增加"
+
+#: inc/alert.class.php:160
+msgid "Decreased"
+msgstr "減少"
+
+#: inc/alert.class.php:161
+msgid "Changed"
+msgstr "變更"
+
+#: inc/alert.class.php:162
+msgid "Moved"
+msgstr "搬移"
+
+#: inc/alert.class.php:184
+msgid "Last inventory: %s"
+msgstr "最後回報：%s"
+
+#: inc/alert.class.php:185
+msgid "%1$d hours without inventory (threshold: %2$d hours)"
+msgstr "已 %1$d 小時沒回報（門檻 %2$d 小時）"
+
+#: inc/alert.class.php:190
+msgid "%1$s: %2$s GB free of %3$s GB (%4$s%%)"
+msgstr "%1$s：剩 %2$s GB / 共 %3$s GB（%4$s%%）"
+
+#: inc/alert.class.php:212
+msgid "Changed by: %s"
+msgstr "變更者：%s"
+
+#: inc/alert.class.php:441 inc/notificationtargetalert.class.php:99 inc/notificationtargetdigest.class.php:95 templates/alert_form.html.twig:29 templates/item_alerts.html.twig:19
+msgid "Details"
+msgstr "內容"
+
+#: inc/alert.class.php:470 templates/alert_form.html.twig:55
+msgid "Acknowledged by"
+msgstr "確認者"
+
+#: inc/alert.class.php:480
+msgid "Acknowledgement comment"
+msgstr "確認備註"
+
+#: inc/alert.class.php:489 templates/alert_form.html.twig:45
+msgid "Last notification"
+msgstr "最後通知時間"
+
+#: inc/alert.class.php:507 templates/alert_form.html.twig:62
+msgid "Silenced until"
+msgstr "暫停提醒至"
+
+#: inc/alert.class.php:516
+msgid "Key"
+msgstr "識別鍵"
+
+#: inc/alert.class.php:685
+msgid "Asset Watch: detect hardware and identity changes"
+msgstr "資產監看：偵測硬體與身分變動"
+
+#: inc/alert.class.php:687
+msgid "Asset Watch: check missing inventories and disk space"
+msgstr "資產監看：檢查沒回報與硬碟空間"
+
+#: inc/alert.class.php:689
+msgid "Asset Watch: purge old history"
+msgstr "資產監看：清除過期歷史"
+
+#: inc/alert.class.php:47
+msgid "Asset alert"
+msgid_plural "Asset alerts"
+msgstr[0] "資產告警"
+
+#: inc/config.class.php:28
+msgid "Asset Watch configuration"
+msgstr "資產監看設定"
+
+#: inc/config.class.php:115
+msgid "E-mail notifications are disabled in GLPI (Setup > Notifications): no alert will be sent."
+msgstr "GLPI 的 E-mail 通知未啟用（設定 > 通知）：告警信不會寄出。"
+
+#: inc/config.class.php:121
+msgid "Automatic action %s is missing: reinstall the plugin."
+msgstr "找不到自動動作 %s：請重新安裝外掛。"
+
+#: inc/config.class.php:125
+msgid "Automatic action %s is disabled."
+msgstr "自動動作 %s 已停用。"
+
+#: inc/config.class.php:127
+msgid "Automatic action %s runs in GLPI mode: it only runs when someone browses GLPI. Switch it to CLI."
+msgstr "自動動作 %s 為 GLPI 模式：只有在有人瀏覽 GLPI 時才會執行，請改成 CLI。"
+
+#: inc/config.class.php:139
+msgid "%d monitored computer has no technical group: its alerts are recorded but nobody is notified."
+msgid_plural "%d monitored computers have no technical group: their alerts are recorded but nobody is notified."
+msgstr[0] "%d 台受監看的電腦沒有設定技術群組：告警會記錄，但不會通知任何人。"
+
+#: inc/digest.class.php:27
+msgid "Asset Watch digest"
+msgid_plural "Asset Watch digests"
+msgstr[0] "資產監看彙整"
+
+#: inc/notificationtargetalert.class.php:33
+msgid "Group in charge of the asset"
+msgstr "資產的技術群組"
+
+#: inc/notificationtargetalert.class.php:94 inc/notificationtargetdigest.class.php:98
+msgid "Item URL"
+msgstr "資產網址"
+
+#: inc/notificationtargetalert.class.php:95 inc/notificationtargetdigest.class.php:97
+msgid "Alert URL"
+msgstr "告警網址"
+
+#: inc/notificationtargetalert.class.php:100
+msgid "Changed by"
+msgstr "變更者"
+
+#: inc/notificationtargetalert.class.php:101
+msgid "Inventory date"
+msgstr "回報時間"
+
+#: inc/notificationtargetalert.class.php:103
+msgid "Change"
+msgstr "變化"
+
+#: inc/notificationtargetalert.class.php:104
+msgid "Before"
+msgstr "變更前"
+
+#: inc/notificationtargetalert.class.php:105
+msgid "After"
+msgstr "變更後"
+
+#: inc/notificationtargetalert.class.php:112
+msgid "List of changes"
+msgstr "變更清單"
+
+#: inc/notificationtargetdigest.class.php:22
+msgid "Asset status digest"
+msgstr "資產狀態彙整"
+
+#: inc/notificationtargetdigest.class.php:29
+msgid "Group in charge of the assets"
+msgstr "資產的技術群組"
+
+#: inc/notificationtargetdigest.class.php:41
+msgid "New"
+msgstr "新增"
+
+#: inc/notificationtargetdigest.class.php:42
+msgid "Still active"
+msgstr "持續中"
+
+#: inc/notificationtargetdigest.class.php:85
+msgid "Number of new alerts"
+msgstr "新增告警數"
+
+#: inc/notificationtargetdigest.class.php:86
+msgid "Number of reminders"
+msgstr "提醒數"
+
+#: inc/notificationtargetdigest.class.php:87
+msgid "Number of resolved alerts"
+msgstr "已恢復數"
+
+#: inc/notificationtargetdigest.class.php:88
+msgid "Total"
+msgstr "總數"
+
+#: inc/notificationtargetdigest.class.php:91
+msgid "Alert list URL"
+msgstr "告警列表網址"
+
+#: inc/notificationtargetdigest.class.php:96
+msgid "Since"
+msgstr "開始時間"
+
+#: inc/notificationtargetdigest.class.php:105
+msgid "List of alerts"
+msgstr "告警清單"
+
+#: inc/rackwatcher.class.php:67
+msgid "Automatic action"
+msgstr "自動動作"
+
+#: inc/snapshot.class.php:24
+msgid "Baseline"
+msgid_plural "Baselines"
+msgstr[0] "比對基準"
+
+#: templates/alert_form.html.twig:38
+msgid "None: nobody is notified"
+msgstr "無：不會通知任何人"
+
+#: templates/alert_form.html.twig:64
+msgid "Silenced until resolved"
+msgstr "暫停提醒直到恢復"
+
+#: templates/alert_form.html.twig:81
+msgid "An acknowledged alert stops sending reminders. It is still closed (and a \"resolved\" notice sent) when the problem disappears."
+msgstr "確認後就不再寄提醒信。問題消失時告警仍會自動結案，並寄出「已恢復」通知。"
+
+#: templates/alert_form.html.twig:91
+msgid "Silence reminders until (empty = until resolved)"
+msgstr "暫停提醒至（空白 = 直到恢復）"
+
+#: templates/alert_form.html.twig:100
+msgid "Resume reminders"
+msgstr "恢復提醒"
+
+#: templates/config.html.twig:11
+msgid "Health check"
+msgstr "健康檢查"
+
+#: templates/config.html.twig:13
+msgid "Monitored computers (inventoried by GLPI Agent): %d"
+msgstr "受監看的電腦（由 GLPI Agent 回報）：%d 台"
+
+#: templates/config.html.twig:15
+msgid "Everything needed to send alerts is in place."
+msgstr "寄送告警所需的設定都已就緒。"
+
+#: templates/config.html.twig:28
+msgid "Checks"
+msgstr "檢查項目"
+
+#: templates/config.html.twig:31
+msgid "No inventory received for too long"
+msgstr "太久沒有回報"
+
+#: templates/config.html.twig:33
+msgid "Hardware change (memory, processors, hard drives)"
+msgstr "硬體變動（記憶體、CPU、硬碟）"
+
+#: templates/config.html.twig:34
+msgid "Identity change (serial number, name, MAC, IP)"
+msgstr "身分變動（序號、主機名稱、MAC、IP）"
+
+#: templates/config.html.twig:47
+msgid "Missing inventory"
+msgstr "沒回報"
+
+#: templates/config.html.twig:50
+msgid "Default threshold (hours)"
+msgstr "預設門檻（小時）"
+
+#: templates/config.html.twig:54
+msgid "Threshold per computer type (hours, empty = default)"
+msgstr "依電腦類型設定門檻（小時，空白 = 預設）"
+
+#: templates/config.html.twig:68
+msgid "Disk space"
+msgstr "硬碟空間"
+
+#: templates/config.html.twig:70
+msgid "A partition is reported when BOTH thresholds are crossed."
+msgstr "分割區要「同時」低於兩個門檻才會告警。"
+
+#: templates/config.html.twig:73
+msgid "Free space below (%)"
+msgstr "剩餘空間低於（%）"
+
+#: templates/config.html.twig:77
+msgid "and free space below (GB)"
+msgstr "而且剩餘空間低於（GB）"
+
+#: templates/config.html.twig:82
+msgid "Ignored file systems (comma separated)"
+msgstr "忽略的檔案系統（以逗號分隔）"
+
+#: templates/config.html.twig:86
+msgid "Ignored mount points (comma separated, * wildcard)"
+msgstr "忽略的掛載點（以逗號分隔，可用 * 萬用字元）"
+
+#: templates/config.html.twig:93
+msgid "Network identity"
+msgstr "網路身分"
+
+#: templates/config.html.twig:95
+msgid "Ignored network interfaces (virtual / container), * wildcard"
+msgstr "忽略的網路介面（虛擬／容器），可用 * 萬用字元"
+
+#: templates/config.html.twig:101
+msgid "Notifications and history"
+msgstr "通知與歷史"
+
+#: templates/config.html.twig:105
+msgid "Reminder every (days, 0 = never)"
+msgstr "提醒間隔（天，0 = 不提醒）"
+
+#: templates/config.html.twig:109
+msgid "Keep history (days)"
+msgstr "歷史保留天數"
+
+#: templates/config.html.twig:114
+msgid "Recipients and e-mail contents are managed in Setup > Notifications (notifications named \"Asset Watch - ...\")."
+msgstr "收件人與信件內容請到「設定 > 通知」調整（名稱為「Asset Watch - ...」的通知）。"
+
+#: templates/item_alerts.html.twig:8
+msgid "Alerts"
+msgstr "告警"
+
+#: templates/item_alerts.html.twig:10
+msgid "No alert for this asset."
+msgstr "這個資產沒有告警。"
+
+#: templates/item_alerts.html.twig:41
+msgid "Baseline used for comparisons"
+msgstr "目前的比對基準"
+
+#: templates/item_alerts.html.twig:67
+msgid "No baseline yet: it is recorded after the next inventory."
+msgstr "尚無比對基準：下次回報後會自動建立。"

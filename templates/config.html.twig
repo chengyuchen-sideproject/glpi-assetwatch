@@ -1,0 +1,123 @@
+{#
+ # Asset Watch - GLPI plugin
+ # Configuration page.
+ # @license GPL-3.0-or-later
+ #}
+
+<div class="container-fluid" style="max-width: 60rem">
+   <h2 class="my-3"><i class="ti ti-heartbeat me-2"></i>{{ __('Asset Watch', 'assetwatch') }} <small class="text-muted">v{{ version }}</small></h2>
+
+   <div class="card mb-3">
+      <div class="card-header"><h3 class="card-title">{{ __('Health check', 'assetwatch') }}</h3></div>
+      <div class="card-body">
+         <p>{{ __('Monitored computers (inventoried by GLPI Agent): %d', 'assetwatch')|format(monitored) }}</p>
+         {% if checks is empty %}
+            <div class="alert alert-success mb-0">{{ __('Everything needed to send alerts is in place.', 'assetwatch') }}</div>
+         {% else %}
+            {% for check in checks %}
+               <div class="alert alert-{{ check.level }}">{{ check.message }}</div>
+            {% endfor %}
+         {% endif %}
+      </div>
+   </div>
+
+   <form method="post" action="{{ form_url }}">
+      <input type="hidden" name="_glpi_csrf_token" value="{{ csrf_token() }}">
+
+      <div class="card mb-3">
+         <div class="card-header"><h3 class="card-title">{{ __('Checks', 'assetwatch') }}</h3></div>
+         <div class="card-body">
+            {% set flags = {
+               'check_noreport': [settings.checkNoReport, __('No inventory received for too long', 'assetwatch')],
+               'check_disk': [settings.checkDisk, __('Low disk space', 'assetwatch')],
+               'check_hardware': [settings.checkHardware, __('Hardware change (memory, processors, hard drives)', 'assetwatch')],
+               'check_identity': [settings.checkIdentity, __('Identity change (serial number, name, MAC, IP)', 'assetwatch')],
+               'check_rack': [settings.checkRack, __('Rack placement change', 'assetwatch')]
+            } %}
+            {% for name, flag in flags %}
+               <label class="form-check">
+                  <input class="form-check-input" type="checkbox" name="{{ name }}" value="1" {{ flag[0] ? 'checked' : '' }}>
+                  <span class="form-check-label">{{ flag[1] }}</span>
+               </label>
+            {% endfor %}
+         </div>
+      </div>
+
+      <div class="card mb-3">
+         <div class="card-header"><h3 class="card-title">{{ __('Missing inventory', 'assetwatch') }}</h3></div>
+         <div class="card-body">
+            <div class="mb-3">
+               <label class="form-label" for="noreport_default_hours">{{ __('Default threshold (hours)', 'assetwatch') }}</label>
+               <input class="form-control" style="max-width: 10rem" type="number" min="1" id="noreport_default_hours" name="noreport_default_hours" value="{{ settings.noReportDefaultHours }}">
+            </div>
+            {% if types is not empty %}
+               <label class="form-label">{{ __('Threshold per computer type (hours, empty = default)', 'assetwatch') }}</label>
+               <table class="table table-sm" style="max-width: 30rem">
+                  {% for type in types %}
+                     <tr>
+                        <td>{{ type.name }}</td>
+                        <td><input class="form-control form-control-sm" type="number" min="1" name="type_hours[{{ type.id }}]" value="{{ type.hours }}"></td>
+                     </tr>
+                  {% endfor %}
+               </table>
+            {% endif %}
+         </div>
+      </div>
+
+      <div class="card mb-3">
+         <div class="card-header"><h3 class="card-title">{{ __('Disk space', 'assetwatch') }}</h3></div>
+         <div class="card-body">
+            <p class="text-muted">{{ __('A partition is reported when BOTH thresholds are crossed.', 'assetwatch') }}</p>
+            <div class="row mb-3">
+               <div class="col-sm-6">
+                  <label class="form-label" for="disk_min_free_percent">{{ __('Free space below (%)', 'assetwatch') }}</label>
+                  <input class="form-control" type="number" step="0.1" min="0" max="100" id="disk_min_free_percent" name="disk_min_free_percent" value="{{ settings.diskMinFreePercent }}">
+               </div>
+               <div class="col-sm-6">
+                  <label class="form-label" for="disk_min_free_gb">{{ __('and free space below (GB)', 'assetwatch') }}</label>
+                  <input class="form-control" type="number" step="0.1" min="0" id="disk_min_free_gb" name="disk_min_free_gb" value="{{ settings.diskMinFreeGb }}">
+               </div>
+            </div>
+            <div class="mb-3">
+               <label class="form-label" for="disk_excluded_fs">{{ __('Ignored file systems (comma separated)', 'assetwatch') }}</label>
+               <input class="form-control" type="text" id="disk_excluded_fs" name="disk_excluded_fs" value="{{ settings.diskExcludedFs|join(',') }}">
+            </div>
+            <div class="mb-3">
+               <label class="form-label" for="disk_excluded_mounts">{{ __('Ignored mount points (comma separated, * wildcard)', 'assetwatch') }}</label>
+               <input class="form-control" type="text" id="disk_excluded_mounts" name="disk_excluded_mounts" value="{{ settings.diskExcludedMounts|join(',') }}" placeholder="/boot*,/snap/*">
+            </div>
+         </div>
+      </div>
+
+      <div class="card mb-3">
+         <div class="card-header"><h3 class="card-title">{{ __('Network identity', 'assetwatch') }}</h3></div>
+         <div class="card-body">
+            <label class="form-label" for="port_excluded_patterns">{{ __('Ignored network interfaces (virtual / container), * wildcard', 'assetwatch') }}</label>
+            <textarea class="form-control" rows="3" id="port_excluded_patterns" name="port_excluded_patterns">{{ settings.portExcludedPatterns|join(',') }}</textarea>
+         </div>
+      </div>
+
+      <div class="card mb-3">
+         <div class="card-header"><h3 class="card-title">{{ __('Notifications and history', 'assetwatch') }}</h3></div>
+         <div class="card-body">
+            <div class="row mb-3">
+               <div class="col-sm-6">
+                  <label class="form-label" for="reminder_days">{{ __('Reminder every (days, 0 = never)', 'assetwatch') }}</label>
+                  <input class="form-control" type="number" min="0" id="reminder_days" name="reminder_days" value="{{ settings.reminderDays }}">
+               </div>
+               <div class="col-sm-6">
+                  <label class="form-label" for="retention_days">{{ __('Keep history (days)', 'assetwatch') }}</label>
+                  <input class="form-control" type="number" min="1" id="retention_days" name="retention_days" value="{{ settings.retentionDays }}">
+               </div>
+            </div>
+            <p class="text-muted mb-0">
+               {{ __('Recipients and e-mail contents are managed in Setup > Notifications (notifications named "Asset Watch - ...").', 'assetwatch') }}
+            </p>
+         </div>
+      </div>
+
+      <button type="submit" name="update" value="1" class="btn btn-primary mb-4">
+         <i class="ti ti-device-floppy me-1"></i>{{ _x('button', 'Save') }}
+      </button>
+   </form>
+</div>
