@@ -146,7 +146,25 @@ else
 fi
 expect "acknowledged alert has status 2" 2 "$(sql "SELECT status FROM glpi_plugin_assetwatch_alerts WHERE id=$OPEN_ID")"
 
-log "11. No PHP error mentioning the plugin"
+log "11. Traditional Chinese recipient gets the zh_TW template and labels"
+curl -s -X DELETE http://localhost:8025/api/v1/messages >/dev/null
+sql "UPDATE glpi_users SET language='zh_TW' WHERE name='glpi';"
+glpi_action rack-place aw-web02 R03 5 >/dev/null
+agent aw-win01 --os windows --disk C::51200:40960
+cron AssetwatchStatus
+flush_mail
+expect "zh_TW rack mail subject" 1 "$(mail_count '[資產監看] 機櫃位置變更：aw-web02')"
+expect "zh_TW digest mail subject" 1 "$(mail_count '[資產監看] Server Team')"
+for id in $(mails | "$PY" -c "import json,sys; [print(m['ID']) for m in json.load(sys.stdin).get('messages', [])]"); do
+    curl -s "http://localhost:8025/api/v1/message/$id" | "$PY" -c "
+import json, sys
+m = json.load(sys.stdin)
+print('  ---', m.get('Subject'))
+print('\n'.join('  | ' + line for line in m.get('Text', '').strip().splitlines()))"
+done
+sql "UPDATE glpi_users SET language=NULL WHERE name='glpi';"
+
+log "12. No PHP error mentioning the plugin"
 ERRORS=$("${COMPOSE[@]}" exec -T glpi sh -c 'cat /var/glpi/logs/php-errors.log 2>/dev/null | grep -ci assetwatch' || true)
 expect "php-errors.log clean" 0 "${ERRORS:-0}"
 if [ "${ERRORS:-0}" != "0" ]; then
