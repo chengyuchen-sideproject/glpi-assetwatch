@@ -183,7 +183,7 @@ if [ "${ERRORS:-0}" != "0" ]; then
 fi
 
 log "13. Uninstall removes everything, reinstall restores it"
-"${COMPOSE[@]}" exec -T glpi php bin/console plugin:uninstall --username=glpi assetwatch >/dev/null
+"${COMPOSE[@]}" exec -T glpi php bin/console plugin:uninstall --no-interaction --username=glpi assetwatch >/dev/null
 expect "tables dropped" 0 "$(sql "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='glpi' AND table_name LIKE 'glpi_plugin_assetwatch%'")"
 expect "notifications removed" 0 "$(sql "SELECT COUNT(*) FROM glpi_notifications WHERE itemtype LIKE 'PluginAssetwatch%'")"
 expect "templates removed" 0 "$(sql "SELECT COUNT(*) FROM glpi_notificationtemplates WHERE itemtype LIKE 'PluginAssetwatch%'")"
