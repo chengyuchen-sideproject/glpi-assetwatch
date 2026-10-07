@@ -25,6 +25,25 @@ final class DiskRule
     public static function evaluate(array $disks, Settings $settings): array
     {
         $findings = [];
+        foreach (self::measureAll($disks, $settings) as $mount => $m) {
+            if ($m['free_percent'] < $settings->diskMinFreePercent && $m['free_gb'] < $settings->diskMinFreeGb) {
+                $findings[$mount] = $m;
+            }
+        }
+        return $findings;
+    }
+
+    /**
+     * Current usage of every watched partition (exclusions applied), keyed by mount point.
+     * Also used to show the actual values when a disk alert is resolved.
+     *
+     * @param array<int, array<string, mixed>> $disks
+     *
+     * @return array<string, array{mountpoint: string, filesystem: string, total_gb: float, free_gb: float, free_percent: float}>
+     */
+    public static function measureAll(array $disks, Settings $settings): array
+    {
+        $result = [];
         foreach ($disks as $disk) {
             $mount = trim((string) ($disk['mountpoint'] ?? ''));
             if ($mount === '') {
@@ -45,19 +64,15 @@ final class DiskRule
             }
 
             $free = min($free, $total);
-            $freePercent = $free / $total * 100;
-            $freeGb = $free / 1024;
-            if ($freePercent < $settings->diskMinFreePercent && $freeGb < $settings->diskMinFreeGb) {
-                $findings[$mount] = [
-                    'mountpoint'   => $mount,
-                    'filesystem'   => $fs,
-                    'total_gb'     => round($total / 1024, 1),
-                    'free_gb'      => round($freeGb, 1),
-                    'free_percent' => round($freePercent, 1),
-                ];
-            }
+            $result[$mount] = [
+                'mountpoint'   => $mount,
+                'filesystem'   => $fs,
+                'total_gb'     => round($total / 1024, 1),
+                'free_gb'      => round($free / 1024, 1),
+                'free_percent' => round($free / $total * 100, 1),
+            ];
         }
-        ksort($findings);
-        return $findings;
+        ksort($result);
+        return $result;
     }
 }

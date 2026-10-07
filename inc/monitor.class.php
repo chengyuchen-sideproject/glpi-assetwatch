@@ -10,6 +10,7 @@ use GlpiPlugin\Assetwatch\Core\AlertText;
 use GlpiPlugin\Assetwatch\Core\DigestBuilder;
 use GlpiPlugin\Assetwatch\Core\DiskRule;
 use GlpiPlugin\Assetwatch\Core\NoReportRule;
+use GlpiPlugin\Assetwatch\Core\Settings;
 use GlpiPlugin\Assetwatch\Core\Snapshot;
 use GlpiPlugin\Assetwatch\Core\SnapshotDiff;
 use GlpiPlugin\Assetwatch\Core\StatusTracker;
@@ -85,6 +86,8 @@ class PluginAssetwatchMonitor
 
         $computers = PluginAssetwatchRepository::monitoredComputers();
         $findings = [];
+        // Current partition usage, to show real values in "resolved" notices.
+        $diskNow = [];
         foreach ($computers as $id => $computer) {
             if ($settings->checkNoReport) {
                 $finding = NoReportRule::evaluate($computer['last_inventory_update'], (int) $computer['computertypes_id'], $nowDate, $settings);
@@ -95,6 +98,7 @@ class PluginAssetwatchMonitor
         }
         if ($settings->checkDisk && $computers !== []) {
             foreach (PluginAssetwatchRepository::disksByComputer(array_keys($computers)) as $id => $disks) {
+                $diskNow[$id] = DiskRule::measureAll($disks, $settings);
                 foreach (DiskRule::evaluate($disks, $settings) as $mount => $finding) {
                     $findings[] = self::finding($id, PluginAssetwatchAlert::TYPE_DISK_LOW, (string) $mount, $finding);
                 }
@@ -149,7 +153,8 @@ class PluginAssetwatchMonitor
             $id = (int) $alert['items_id'];
             // Machines that left monitoring (trashed, no longer dynamic) resolve silently.
             if ($alert['itemtype'] === 'Computer' && isset($computers[$id])) {
-                $entries[] = self::entry(DigestBuilder::KIND_RESOLVED, (int) $alert['id'], $computers[$id], (string) $alert['alert_type'], (string) $alert['alert_key'], PluginAssetwatchAlert::decodeContent($alert), (string) $alert['date_creation']);
+                $content = self::currentState($alert, $computers[$id], $diskNow[$id] ?? [], $nowDate, $settings);
+                $entries[] = self::entry(DigestBuilder::KIND_RESOLVED, (int) $alert['id'], $computers[$id], (string) $alert['alert_type'], (string) $alert['alert_key'], $content, (string) $alert['date_creation']);
             }
         }
 
@@ -206,6 +211,34 @@ class PluginAssetwatchMonitor
         if ($alert_id > 0 && $alert->getFromDB($alert_id)) {
             NotificationEvent::raiseEvent($type, $alert);
         }
+    }
+
+    /**
+     * Values to show for a resolved alert: the situation now, not the last bad one.
+     *
+     * @param array<string, mixed> $alert
+     * @param array<string, mixed> $computer
+     * @param array<string, array<string, mixed>> $disks current measurements by mount point
+     *
+     * @return array<string, mixed>
+     */
+    private static function currentState(array $alert, array $computer, array $disks, DateTimeImmutable $now, Settings $settings): array
+    {
+        // Both the stored key and the measured mount points use GLPI's encoded form.
+        $key = (string) $alert['alert_key'];
+        if ($alert['alert_type'] === PluginAssetwatchAlert::TYPE_DISK_LOW && isset($disks[$key])) {
+            return $disks[$key];
+        }
+        if ($alert['alert_type'] === PluginAssetwatchAlert::TYPE_NO_REPORT && !empty($computer['last_inventory_update'])) {
+            $last = new DateTimeImmutable((string) $computer['last_inventory_update'], $now->getTimezone());
+            return [
+                'last_inventory'  => $last->format('Y-m-d H:i:s'),
+                'hours_since'     => max(0, intdiv($now->getTimestamp() - $last->getTimestamp(), 3600)),
+                'threshold_hours' => $settings->noReportHoursFor((int) $computer['computertypes_id']),
+            ];
+        }
+        // Partition gone or check data missing: keep the last known values.
+        return PluginAssetwatchAlert::decodeContent($alert);
     }
 
     /**

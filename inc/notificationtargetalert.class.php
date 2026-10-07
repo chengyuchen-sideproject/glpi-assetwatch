@@ -7,6 +7,7 @@
  */
 
 use Glpi\Toolbox\Sanitizer;
+use GlpiPlugin\Assetwatch\Core\AlertText;
 
 if (!defined('GLPI_ROOT')) {
     die("Sorry. You can't access this file directly");
@@ -60,20 +61,15 @@ class PluginAssetwatchNotificationTargetAlert extends NotificationTarget
 
         $this->data['changes'] = [];
         if ($fields['alert_type'] === PluginAssetwatchAlert::TYPE_RACK) {
-            $this->data['changes'][] = [
-                '##change.field##'     => PluginAssetwatchAlert::fieldLabel('rack'),
-                '##change.direction##' => PluginAssetwatchAlert::directionLabel((string) ($content['action'] ?? '')),
-                '##change.old##'       => (string) ($content['old'] ?? ''),
-                '##change.new##'       => (string) ($content['new'] ?? ''),
-            ];
+            $this->data['changes'][] = self::changeRow('rack', (string) ($content['action'] ?? ''), (string) ($content['old'] ?? ''), (string) ($content['new'] ?? ''));
         } else {
             foreach ((array) ($content['changes'] ?? []) as $change) {
-                $this->data['changes'][] = [
-                    '##change.field##'     => PluginAssetwatchAlert::fieldLabel((string) ($change['field'] ?? '')),
-                    '##change.direction##' => PluginAssetwatchAlert::directionLabel((string) ($change['direction'] ?? '')),
-                    '##change.old##'       => (string) ($change['old'] ?? ''),
-                    '##change.new##'       => (string) ($change['new'] ?? ''),
-                ];
+                $this->data['changes'][] = self::changeRow(
+                    (string) ($change['field'] ?? ''),
+                    (string) ($change['direction'] ?? ''),
+                    (string) ($change['old'] ?? ''),
+                    (string) ($change['new'] ?? '')
+                );
             }
         }
 
@@ -83,6 +79,20 @@ class PluginAssetwatchNotificationTargetAlert extends NotificationTarget
                 $this->data[$tag] = $values['label'];
             }
         }
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private static function changeRow(string $field, string $direction, string $old, string $new): array
+    {
+        return [
+            '##change.field##'     => PluginAssetwatchAlert::fieldLabel($field),
+            '##change.direction##' => PluginAssetwatchAlert::directionLabel($direction),
+            '##change.old##'       => $old,
+            '##change.new##'       => $new,
+            '##change.value##'     => AlertText::arrow($old, $new),
+        ];
     }
 
     public function getTags()
@@ -103,6 +113,7 @@ class PluginAssetwatchNotificationTargetAlert extends NotificationTarget
             'change.direction'         => __('Change', 'assetwatch'),
             'change.old'               => __('Before', 'assetwatch'),
             'change.new'               => __('After', 'assetwatch'),
+            'change.value'             => __('Before -> after', 'assetwatch'),
         ];
         foreach ($tags as $tag => $label) {
             $this->addTagToList(['tag' => $tag, 'label' => $label, 'value' => true]);

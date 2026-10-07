@@ -36,15 +36,15 @@ msgstr "沒回報"
 msgid "Low disk space"
 msgstr "硬碟空間不足"
 
-#: inc/alert.class.php:110 inc/notificationtargetalert.class.php:23
+#: inc/alert.class.php:110 inc/notificationtargetalert.class.php:24
 msgid "Hardware change"
 msgstr "硬體變動"
 
-#: inc/alert.class.php:111 inc/notificationtargetalert.class.php:24
+#: inc/alert.class.php:111 inc/notificationtargetalert.class.php:25
 msgid "Identity change"
 msgstr "身分變動"
 
-#: inc/alert.class.php:112 inc/notificationtargetalert.class.php:25 templates/config.html.twig:35
+#: inc/alert.class.php:112 inc/notificationtargetalert.class.php:26 templates/config.html.twig:35
 msgid "Rack placement change"
 msgstr "機櫃位置變更"
 
@@ -60,9 +60,13 @@ msgstr "已確認"
 msgid "Resolved"
 msgstr "已恢復"
 
-#: inc/alert.class.php:125 inc/notificationtargetalert.class.php:91
+#: inc/alert.class.php:125 inc/notificationtargetalert.class.php:101
 msgid "Event"
 msgstr "事件"
+
+#: inc/alert.class.php:149
+msgid "Rack placement"
+msgstr "機櫃位置"
 
 #: inc/alert.class.php:157
 msgid "Added"
@@ -97,14 +101,14 @@ msgid "%1$d hours without inventory (threshold: %2$d hours)"
 msgstr "已 %1$d 小時沒回報（門檻 %2$d 小時）"
 
 #: inc/alert.class.php:190
-msgid "%1$s: %2$s GB free of %3$s GB (%4$s%%)"
-msgstr "%1$s：剩 %2$s GB / 共 %3$s GB（%4$s%%）"
+msgid "[%1$s] %2$s GB free of %3$s GB (%4$s%%)"
+msgstr "[%1$s] 剩 %2$s GB / 共 %3$s GB（%4$s%%）"
 
 #: inc/alert.class.php:212
 msgid "Changed by: %s"
 msgstr "變更者：%s"
 
-#: inc/alert.class.php:441 inc/notificationtargetalert.class.php:99 inc/notificationtargetdigest.class.php:95 templates/alert_form.html.twig:29 templates/item_alerts.html.twig:19
+#: inc/alert.class.php:441 inc/notificationtargetalert.class.php:109 inc/notificationtargetdigest.class.php:95 templates/alert_form.html.twig:29 templates/item_alerts.html.twig:19
 msgid "Details"
 msgstr "內容"
 
@@ -175,39 +179,43 @@ msgid "Asset Watch digest"
 msgid_plural "Asset Watch digests"
 msgstr[0] "資產監看彙整"
 
-#: inc/notificationtargetalert.class.php:33
+#: inc/notificationtargetalert.class.php:34
 msgid "Group in charge of the asset"
 msgstr "資產的技術群組"
 
-#: inc/notificationtargetalert.class.php:94 inc/notificationtargetdigest.class.php:98
+#: inc/notificationtargetalert.class.php:104 inc/notificationtargetdigest.class.php:98
 msgid "Item URL"
 msgstr "資產網址"
 
-#: inc/notificationtargetalert.class.php:95 inc/notificationtargetdigest.class.php:97
+#: inc/notificationtargetalert.class.php:105 inc/notificationtargetdigest.class.php:97
 msgid "Alert URL"
 msgstr "告警網址"
 
-#: inc/notificationtargetalert.class.php:100
+#: inc/notificationtargetalert.class.php:110
 msgid "Changed by"
 msgstr "變更者"
 
-#: inc/notificationtargetalert.class.php:101
+#: inc/notificationtargetalert.class.php:111
 msgid "Inventory date"
 msgstr "回報時間"
 
-#: inc/notificationtargetalert.class.php:103
+#: inc/notificationtargetalert.class.php:113
 msgid "Change"
 msgstr "變化"
 
-#: inc/notificationtargetalert.class.php:104
+#: inc/notificationtargetalert.class.php:114
 msgid "Before"
 msgstr "變更前"
 
-#: inc/notificationtargetalert.class.php:105
+#: inc/notificationtargetalert.class.php:115
 msgid "After"
 msgstr "變更後"
 
-#: inc/notificationtargetalert.class.php:112
+#: inc/notificationtargetalert.class.php:116
+msgid "Before -> after"
+msgstr "變更前 -> 變更後"
+
+#: inc/notificationtargetalert.class.php:123
 msgid "List of changes"
 msgstr "變更清單"
 

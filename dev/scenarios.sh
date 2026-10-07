@@ -53,6 +53,15 @@ flush_mail() {
     echo "  (queue left: $(sql "SELECT COUNT(*) FROM glpi_queuednotifications WHERE is_deleted=0"), sent: $(sql "SELECT COUNT(*) FROM glpi_queuednotifications WHERE is_deleted=1"), in Mailpit: $(mails | "$PY" -c "import json,sys; print(json.load(sys.stdin).get('total', '?'))"))"
 }
 
+mail_text_count() {
+    # mail_text_count <substring of the plain-text body>
+    local total=0
+    for id in $(mails | "$PY" -c "import json,sys; [print(m['ID']) for m in json.load(sys.stdin).get('messages', [])]"); do
+        total=$((total + $(curl -s "http://localhost:8025/api/v1/message/$id" | "$PY" -c "import json,sys; print(1 if sys.argv[1] in json.load(sys.stdin).get('Text', '') else 0)" "$1")))
+    done
+    echo "$total"
+}
+
 mail_debug() {
     sql "SELECT id, itemtype, event, mode, sent_try, is_deleted, LEFT(name, 80) FROM glpi_queuednotifications ORDER BY id" | head -20
     mails | "$PY" -c "import json,sys; [print('   mail:', m.get('Subject')) for m in json.load(sys.stdin).get('messages', [])]"
@@ -155,6 +164,8 @@ cron AssetwatchStatus
 flush_mail
 expect "zh_TW rack mail subject" 1 "$(mail_count '[資產監看] 機櫃位置變更：aw-web02')"
 expect "zh_TW digest mail subject" 1 "$(mail_count '[資產監看] Server Team')"
+expect "resolved notice shows current free space" 1 "$(mail_text_count '[C:] 剩 40.0 GB')"
+expect "rack field label translated" 1 "$(mail_text_count '機櫃位置 [新增]：+ R03 / U5')"
 for id in $(mails | "$PY" -c "import json,sys; [print(m['ID']) for m in json.load(sys.stdin).get('messages', [])]"); do
     curl -s "http://localhost:8025/api/v1/message/$id" | "$PY" -c "
 import json, sys

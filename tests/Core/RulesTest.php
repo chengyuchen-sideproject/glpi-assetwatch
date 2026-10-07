@@ -77,6 +77,19 @@ final class RulesTest extends TestCase
         $this->assertSame(['/mnt/nameonly'], array_keys(DiskRule::evaluate($disks, $settings)));
     }
 
+    public function testMeasureAllReturnsEveryWatchedPartition(): void
+    {
+        $disks = [
+            ['mountpoint' => 'C:', 'filesystem' => 'NTFS', 'total_mb' => 51200, 'free_mb' => 40960],
+            ['mountpoint' => '/run', 'filesystem' => 'tmpfs', 'total_mb' => 1000, 'free_mb' => 0],
+        ];
+        $this->assertSame(
+            ['C:' => ['mountpoint' => 'C:', 'filesystem' => 'ntfs', 'total_gb' => 50.0, 'free_gb' => 40.0, 'free_percent' => 80.0]],
+            DiskRule::measureAll($disks, Settings::fromArray([]))
+        );
+        $this->assertSame([], DiskRule::evaluate($disks, Settings::fromArray([])));
+    }
+
     public function testDiskFreeLargerThanTotalIsClamped(): void
     {
         $findings = DiskRule::evaluate([['mountpoint' => '/x', 'total_mb' => 1000, 'free_mb' => 5000]], Settings::fromArray([]));

@@ -39,7 +39,7 @@ final class AlertText
                 break;
             case self::TYPE_DISK_LOW:
                 $text = sprintf(
-                    '%s: %s GB free / %s GB (%s%%)',
+                    '[%s] %s GB free / %s GB (%s%%)',
                     (string) ($content['mountpoint'] ?? '?'),
                     self::number($content['free_gb'] ?? 0),
                     self::number($content['total_gb'] ?? 0),

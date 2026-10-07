@@ -14,7 +14,7 @@ final class AlertTextTest extends TestCase
             AlertText::summary('no_report', ['hours_since' => 50, 'last_inventory' => '2026-10-05 10:00:00', 'threshold_hours' => 36])
         );
         $this->assertSame(
-            '/var: 8.0 GB free / 100.0 GB (8.0%)',
+            '[/var] 8.0 GB free / 100.0 GB (8.0%)',
             AlertText::summary('disk_low', ['mountpoint' => '/var', 'free_gb' => 8, 'total_gb' => 100, 'free_percent' => 8])
         );
         $this->assertSame(

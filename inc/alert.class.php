@@ -146,7 +146,7 @@ class PluginAssetwatchAlert extends CommonDBTM
             'name'   => __('Name'),
             'mac'    => __('MAC'),
             'ip'     => __('IP'),
-            'rack'   => Rack::getTypeName(1),
+            'rack'   => __('Rack placement', 'assetwatch'),
         ];
         return $labels[$field] ?? $field;
     }
@@ -187,7 +187,7 @@ class PluginAssetwatchAlert extends CommonDBTM
             case self::TYPE_DISK_LOW:
                 return [
                     sprintf(
-                        __('%1$s: %2$s GB free of %3$s GB (%4$s%%)', 'assetwatch'),
+                        __('[%1$s] %2$s GB free of %3$s GB (%4$s%%)', 'assetwatch'),
                         $content['mountpoint'] ?? '?',
                         number_format((float) ($content['free_gb'] ?? 0), 1),
                         number_format((float) ($content['total_gb'] ?? 0), 1),

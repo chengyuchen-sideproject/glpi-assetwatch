@@ -53,14 +53,14 @@ Asset Watch status digest - ##digest.date##
 Group: ##digest.group##
 
 New: ##digest.nbnew## / Still active: ##digest.nbreminder## / Resolved: ##digest.nbresolved##
-
 ##FOREACHalerts##
+
 [##alert.kind##] ##alert.item## - ##alert.type##
   ##alert.details##
   Since: ##alert.since##
   ##alert.url##
-
 ##ENDFOREACHalerts##
+
 All alerts: ##digest.listurl##
 TXT,
             'html'    => <<<'HTML'
@@ -89,14 +89,14 @@ HTML,
 群組：##digest.group##
 
 新增：##digest.nbnew## / 持續中：##digest.nbreminder## / 已恢復：##digest.nbresolved##
-
 ##FOREACHalerts##
+
 [##alert.kind##] ##alert.item## - ##alert.type##
   ##alert.details##
   開始時間：##alert.since##
   ##alert.url##
-
 ##ENDFOREACHalerts##
+
 所有告警：##digest.listurl##
 TXT,
             'html'    => <<<'HTML'
@@ -127,7 +127,7 @@ Group: ##assetwatch.group##
 ##IFassetwatch.user##Changed by: ##assetwatch.user####ENDIFassetwatch.user##
 
 ##FOREACHchanges##
-- ##change.field## [##change.direction##]: ##change.old## -> ##change.new##
+- ##change.field## [##change.direction##]: ##change.value##
 ##ENDFOREACHchanges##
 
 Asset: ##assetwatch.itemurl##
@@ -161,7 +161,7 @@ HTML,
 ##IFassetwatch.user##變更者：##assetwatch.user####ENDIFassetwatch.user##
 
 ##FOREACHchanges##
-- ##change.field## [##change.direction##]：##change.old## -> ##change.new##
+- ##change.field## [##change.direction##]：##change.value##
 ##ENDFOREACHchanges##
 
 資產：##assetwatch.itemurl##
