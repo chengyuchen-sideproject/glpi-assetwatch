@@ -42,7 +42,21 @@ ARROW='-&#62;'
 
 
 flush_mail() {
-    cron queuednotification
+    # The image's own cron worker may be running the mail queue at the same time
+    # (a locked task is skipped), so retry until the queue is really empty.
+    for _ in $(seq 1 20); do
+        cron queuednotification
+        [ "$(sql "SELECT COUNT(*) FROM glpi_queuednotifications WHERE is_deleted=0")" = "0" ] && break
+        sleep 3
+    done
+    sleep 2
+    echo "  (queue left: $(sql "SELECT COUNT(*) FROM glpi_queuednotifications WHERE is_deleted=0"), sent: $(sql "SELECT COUNT(*) FROM glpi_queuednotifications WHERE is_deleted=1"), in Mailpit: $(mails | "$PY" -c "import json,sys; print(json.load(sys.stdin).get('total', '?'))"))"
+}
+
+mail_debug() {
+    sql "SELECT id, itemtype, event, mode, sent_try, is_deleted, LEFT(name, 80) FROM glpi_queuednotifications ORDER BY id" | head -20
+    mails | "$PY" -c "import json,sys; [print('   mail:', m.get('Subject')) for m in json.load(sys.stdin).get('messages', [])]"
+    "${COMPOSE[@]}" exec -T glpi sh -c 'tail -n 30 /var/glpi/logs/mail-error.log 2>/dev/null; tail -n 30 /var/glpi/logs/mail.log 2>/dev/null' || true
 }
 
 mail_count() {
@@ -113,11 +127,11 @@ expect "no_report alert resolved" 1 "$(count_alerts "alert_type='no_report' AND 
 
 log "9. E-mails delivered to Mailpit"
 flush_mail
-sleep 2
 expect "hardware change mail" 1 "$(mail_count 'Hardware change: aw-web01')"
 expect "identity change mail" 1 "$(mail_count 'Identity change: aw-web02')"
 expect "rack change mails" 3 "$(mail_count 'Rack placement change: aw-web01')"
 expect "status digest mails" 3 "$(mail_count '[Asset Watch] Server Team')"
+[ "$FAIL" -gt 0 ] && mail_debug
 
 log "10. Web UI (pages, tabs, forms)"
 agent aw-win01 --os windows --disk C::51200:1024
