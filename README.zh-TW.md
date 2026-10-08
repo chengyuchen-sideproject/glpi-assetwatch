@@ -47,11 +47,34 @@ git clone https://github.com/chengyuchen-sideproject/glpi-assetwatch.git assetwa
 資料夾**一定要叫 `assetwatch`**。接著到 GLPI 的 **設定 > 外掛程式 > Asset Watch**，按「安裝」再按「啟用」。也可以用命令列：
 
 ```bash
-docker exec glpi_app php bin/console plugin:install --username=glpi assetwatch
-docker exec glpi_app php bin/console plugin:activate assetwatch
+docker exec -u www-data glpi_app php bin/console plugin:install --username=glpi assetwatch
+docker exec -u www-data glpi_app php bin/console plugin:activate assetwatch
 ```
 
-安裝後：
+命令列請用 `www-data` 身分執行。用 root 跑的話，會在 `/var/glpi/files/_cache` 留下 root 擁有的快取檔，網頁端之後就無法更新這些檔案。
+
+### 離線安裝（無法連網的 Docker 主機）
+
+這個外掛是純 PHP，不需要 Composer、沒有 `vendor/`，也不從 CDN 載入任何東西；翻譯檔（`.mo`）已經編譯好放在裡面。安裝和執行都不需要連網，只要把檔案帶進去就好。
+
+1. 在能上網的電腦，從 [Releases](https://github.com/chengyuchen-sideproject/glpi-assetwatch/releases) 頁面下載 `assetwatch-<版本>.tar.gz` 和對應的 `.sha256` 檔。也可以從原始碼自己打包：`git archive --format=tar.gz --prefix=assetwatch/ -o assetwatch-1.0.0.tar.gz v1.0.0`。不建議用 GitHub 的「Download ZIP」，解開後資料夾會叫 `glpi-assetwatch-main`，必須自己改名。
+2. 把兩個檔案帶到 GLPI 主機上，執行：
+
+   ```bash
+   sha256sum -c assetwatch-1.0.0.tar.gz.sha256
+   tar -xzf assetwatch-1.0.0.tar.gz -C ./glpi_plugins     # 會建立 glpi_plugins/assetwatch
+   chmod -R a+rX ./glpi_plugins/assetwatch                # 讓容器內的 www-data（uid 33）讀得到
+   ```
+
+   `./glpi_plugins` 是掛載到 `/var/www/glpi/plugins` 的主機目錄。如果沒有掛載，也可以用 `docker cp assetwatch glpi_app:/var/www/glpi/plugins/` 直接複製進容器，但容器一重建外掛就會消失。
+3. 用上面的兩行命令列指令安裝並啟用，也可以在網頁介面操作。
+4. 到 **設定 > 通知**，把 SMTP 指向內網的郵件伺服器。
+
+**離線升級**：把新版壓縮檔解開覆蓋 `glpi_plugins/assetwatch`，再到 **設定 > 外掛程式** 按「更新」。資料庫裡的告警歷史會保留。
+
+**GLPI 本身也還沒裝？** 映像檔也要一起帶進去：在能上網的電腦執行 `docker save glpi/glpi:10.0.20 mariadb:10.11 -o glpi-images.tar`，到離線主機執行 `docker load -i glpi-images.tar`。
+
+### 安裝後
 
 1. 到 **設定 > 外掛程式 > Asset Watch** 的設定頁，看「健康檢查」區塊有沒有警告，需要的話調整門檻。
 2. 到 **管理 > 設定檔 >（設定檔）> 資產監看** 分頁，把「讀取」和「確認告警」權限開給要看告警的技術人員。Super-Admin 預設擁有全部權限。

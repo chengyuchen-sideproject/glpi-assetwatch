@@ -56,11 +56,47 @@ The directory **must be named `assetwatch`**. Then in GLPI:
 **Setup > Plugins > Asset Watch > Install, then Enable**. Or from the console:
 
 ```bash
-docker exec glpi_app php bin/console plugin:install --username=glpi assetwatch
-docker exec glpi_app php bin/console plugin:activate assetwatch
+docker exec -u www-data glpi_app php bin/console plugin:install --username=glpi assetwatch
+docker exec -u www-data glpi_app php bin/console plugin:activate assetwatch
 ```
 
-After installation:
+Run the console as `www-data`: as root it leaves root-owned cache files under
+`/var/glpi/files/_cache` that the web server can no longer update.
+
+### Offline installation (air-gapped Docker host)
+
+The plugin is plain PHP with no Composer dependencies, no `vendor/` and no CDN
+assets; compiled translations (`.mo`) are included. Nothing needs network access
+to install or run it, so it only has to be carried in.
+
+1. On a machine with Internet access, download `assetwatch-<version>.tar.gz` and
+   its `.sha256` file from the
+   [Releases](https://github.com/chengyuchen-sideproject/glpi-assetwatch/releases) page
+   (or build it from a checkout:
+   `git archive --format=tar.gz --prefix=assetwatch/ -o assetwatch-1.0.0.tar.gz v1.0.0`).
+   Avoid GitHub's "Download ZIP": its folder is named `glpi-assetwatch-main` and must be renamed.
+2. Copy both files to the GLPI host, then:
+
+   ```bash
+   sha256sum -c assetwatch-1.0.0.tar.gz.sha256
+   tar -xzf assetwatch-1.0.0.tar.gz -C ./glpi_plugins     # creates glpi_plugins/assetwatch
+   chmod -R a+rX ./glpi_plugins/assetwatch                # readable by www-data (uid 33)
+   ```
+
+   `./glpi_plugins` is the host directory mounted as `/var/www/glpi/plugins`. Without
+   such a mount, `docker cp assetwatch glpi_app:/var/www/glpi/plugins/` works too, but
+   the plugin disappears when the container is recreated.
+3. Install and enable with the two console commands above (or in the web UI).
+4. Point **Setup > Notifications** at the internal SMTP relay.
+
+**Upgrading offline:** extract the new archive over `glpi_plugins/assetwatch`, then
+use the *Update* button in **Setup > Plugins**. Alert history in the database is kept.
+
+**GLPI itself not there yet?** Carry the images too:
+`docker save glpi/glpi:10.0.20 mariadb:10.11 -o glpi-images.tar` on the connected
+machine, `docker load -i glpi-images.tar` on the offline host.
+
+### After installation
 
 1. **Setup > Plugins > Asset Watch** (configuration page): check the *Health check*
    box, adjust thresholds if needed.
