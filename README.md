@@ -116,6 +116,7 @@ asset record is ever modified. **Disable** keeps all data.
 ```bash
 bash dev/up.sh          # GLPI 10.0.20 + MariaDB 10.11 + Mailpit, plugin installed
 bash dev/scenarios.sh   # end-to-end checks with fake GLPI Agent inventories
+bash dev/scenarios.sh --keep   # same, but leave test alerts in place to browse in the UI
 php phpunit.phar        # unit tests of src/Core (PHPUnit 9.6)
 python tools/i18n.py extract|compile|check   # translations
 ```

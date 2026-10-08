@@ -5,9 +5,13 @@
 # GLPI mail queue, then checks alerts in the database and e-mails in Mailpit.
 #
 #   bash dev/scenarios.sh            # full run (resets plugin data and Mailpit first)
+#   bash dev/scenarios.sh --keep     # skip the uninstall step, leaving alerts to browse in the UI
 #
 # Exit code 0 only when every check passes.
 set -uo pipefail
+
+KEEP=0
+[ "${1:-}" = "--keep" ] && KEEP=1
 
 DEV_DIR="$(cd "$(dirname "$0")" && pwd)"
 COMPOSE=(docker compose -f "$DEV_DIR/docker-compose.yml")
@@ -83,6 +87,13 @@ sql "DELETE FROM glpi_items_racks WHERE itemtype='Computer' AND items_id IN (SEL
 glpi_action purge aw-web01 aw-web02 aw-win01
 sql "DELETE FROM glpi_plugin_assetwatch_alerts; DELETE FROM glpi_plugin_assetwatch_snapshots; DELETE FROM glpi_plugin_assetwatch_digests; DELETE FROM glpi_queuednotifications;"
 curl -s -X DELETE http://localhost:8025/api/v1/messages >/dev/null
+
+# The checks expect English mails until step 11; remember the glpi user's own
+# language choice (made in the UI) and put it back on any exit.
+ORIG_LANG=$(sql "SELECT IFNULL(CONCAT(\"'\", language, \"'\"), 'NULL') FROM glpi_users WHERE name='glpi'")
+restore_language() { sql "UPDATE glpi_users SET language=$ORIG_LANG WHERE name='glpi';"; }
+trap restore_language EXIT
+sql "UPDATE glpi_users SET language=NULL WHERE name='glpi';"
 
 log "1. First inventories only record a baseline"
 agent aw-web01
@@ -179,13 +190,27 @@ m = json.load(sys.stdin)
 print('  ---', m.get('Subject'))
 print('\n'.join('  | ' + line for line in m.get('Text', '').strip().splitlines()))"
 done
-sql "UPDATE glpi_users SET language=NULL WHERE name='glpi';"
+restore_language
 
 log "12. No PHP error mentioning the plugin"
 ERRORS=$("${COMPOSE[@]}" exec -T glpi sh -c 'cat /var/glpi/logs/php-errors.log 2>/dev/null | grep -ci assetwatch' || true)
 expect "php-errors.log clean" 0 "${ERRORS:-0}"
 if [ "${ERRORS:-0}" != "0" ]; then
     "${COMPOSE[@]}" exec -T glpi sh -c 'grep -i -B2 -A8 assetwatch /var/glpi/logs/php-errors.log | tail -60'
+fi
+
+if [ "$KEEP" -eq 1 ]; then
+    log "13. Skipped (--keep): leaving two active alerts for the default list view"
+    # Everything above ends resolved or as a one-off event, which the default
+    # list filter (active + acknowledged) hides; re-break two machines.
+    agent aw-win01 --os windows --disk C::51200:2048
+    sql "UPDATE glpi_computers SET last_inventory_update = NOW() - INTERVAL 40 HOUR WHERE name='aw-web02';"
+    cron AssetwatchStatus
+    expect "two active alerts to browse" 2 "$(count_alerts "status=1")"
+    echo "  See http://localhost:8080/plugins/assetwatch/front/alert.php (resolved/events: clear the status filter)"
+    printf '\n%d passed, %d failed\n' "$PASS" "$FAIL"
+    [ "$FAIL" -eq 0 ]
+    exit
 fi
 
 log "13. Uninstall removes everything, reinstall restores it"

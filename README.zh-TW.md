@@ -94,6 +94,7 @@ GLPI 10.0 沒有「inventory 匯入完成」的 hook，所以硬體和身分變�
 ```bash
 bash dev/up.sh          # 啟動 GLPI 10.0.20 + MariaDB 10.11 + Mailpit，並安裝外掛
 bash dev/scenarios.sh   # 用模擬的 GLPI Agent 回報跑端到端情境測試
+bash dev/scenarios.sh --keep   # 同上，但保留測試告警，方便到介面上查看
 php phpunit.phar        # src/Core 的單元測試（PHPUnit 9.6）
 python tools/i18n.py extract|compile|check   # 翻譯檔
 ```
