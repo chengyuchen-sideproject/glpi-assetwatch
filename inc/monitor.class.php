@@ -6,6 +6,7 @@
  * @license GPL-3.0-or-later
  */
 
+use Glpi\DBAL\QuerySubQuery;
 use GlpiPlugin\Assetwatch\Core\AlertText;
 use GlpiPlugin\Assetwatch\Core\DigestBuilder;
 use GlpiPlugin\Assetwatch\Core\DiskRule;
@@ -138,7 +139,7 @@ class PluginAssetwatchMonitor
             $finding = $pair['finding'];
             $values = self::refreshValues($computers[$finding['items_id']], $finding);
             // Avoid an hourly write when nothing visible changed.
-            if (AlertText::summary($finding['alert_type'], $finding['content']) !== PluginAssetwatchAlert::decodeRow($alert)['summary']
+            if (AlertText::summary($finding['alert_type'], $finding['content']) !== (string) $alert['summary']
                 || (int) $values['groups_id_tech'] !== (int) $alert['groups_id_tech']) {
                 PluginAssetwatchAlert::updateAlert((int) $alert['id'], $values + ['date_mod' => $now]);
             }
@@ -158,7 +159,8 @@ class PluginAssetwatchMonitor
             }
         }
 
-        foreach (DigestBuilder::build($entries) as $digest) {
+        // One digest per (entity, technical group); a machine with several groups is in each of them.
+        foreach (DigestBuilder::build(DigestBuilder::expandByGroups($entries)) as $digest) {
             $stored = PluginAssetwatchDigest::store($digest, $now);
             if ($stored !== null) {
                 NotificationEvent::raiseEvent('digest', $stored);
@@ -201,7 +203,7 @@ class PluginAssetwatchMonitor
     /**
      * Record a one-shot change alert and send its notification.
      *
-     * @param array<string, mixed> $item    asset fields (id, name, entities_id, groups_id_tech)
+     * @param array<string, mixed> $item    asset fields (id, name, entities_id, groups_id_tech, tech_groups)
      * @param array<string, mixed> $content
      */
     public static function raiseEventAlert(string $itemtype, array $item, string $type, array $content, string $now): void
@@ -209,6 +211,12 @@ class PluginAssetwatchMonitor
         $alert_id = PluginAssetwatchAlert::createAlert($itemtype, $item, $type, '', PluginAssetwatchAlert::STATUS_EVENT, $content, $now);
         $alert = new PluginAssetwatchAlert();
         if ($alert_id > 0 && $alert->getFromDB($alert_id)) {
+            // The row keeps one group; notify every technical group of the asset (GLPI 11
+            // NotificationTarget::addItemGroupTechInCharge() accepts a list).
+            $groups = array_values(array_filter(array_map('intval', (array) ($item['tech_groups'] ?? [])), static fn (int $g): bool => $g > 0));
+            if (count($groups) > 1) {
+                $alert->fields['groups_id_tech'] = $groups;
+            }
             NotificationEvent::raiseEvent($type, $alert);
         }
     }
@@ -224,7 +232,7 @@ class PluginAssetwatchMonitor
      */
     private static function currentState(array $alert, array $computer, array $disks, DateTimeImmutable $now, Settings $settings): array
     {
-        // Both the stored key and the measured mount points use GLPI's encoded form.
+        // Stored key and measured mount points are both raw strings (GLPI 11 no longer HTML-encodes).
         $key = (string) $alert['alert_key'];
         if ($alert['alert_type'] === PluginAssetwatchAlert::TYPE_DISK_LOW && isset($disks[$key])) {
             return $disks[$key];
@@ -287,6 +295,7 @@ class PluginAssetwatchMonitor
             'alert_id'       => $alert_id,
             'entities_id'    => (int) $computer['entities_id'],
             'groups_id_tech' => (int) $computer['groups_id_tech'],
+            'tech_groups'    => (array) ($computer['tech_groups'] ?? []),
             'itemtype'       => 'Computer',
             'items_id'       => (int) $computer['id'],
             'item_name'      => (string) $computer['name'],

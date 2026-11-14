@@ -4,7 +4,7 @@ English | [繁體中文](README.zh-TW.md)
 
 [![CI](https://github.com/chengyuchen-sideproject/glpi-assetwatch/actions/workflows/ci.yml/badge.svg)](https://github.com/chengyuchen-sideproject/glpi-assetwatch/actions/workflows/ci.yml)
 
-A GLPI 10 plugin that watches the inventories sent by **GLPI Agent** and e-mails
+A GLPI 11 plugin (use the 1.x series for GLPI 10) that watches the inventories sent by **GLPI Agent** and e-mails
 the technical group of a server when something is wrong:
 
 | Check | Rule (defaults) | How it is sent |
@@ -19,6 +19,8 @@ Condition alerts (no inventory, disk) are sent **once when they start**, then
 **every 3 days** while still active, and once more **when they are resolved**.
 All alerts of one hourly run are grouped into **one e-mail per technical group**,
 so a network outage of ten servers produces one e-mail, not ten.
+With GLPI 11 an asset can have **several technical groups**: each group gets its own
+digest (listing only its machines), and one-shot change e-mails go to all of them.
 
 The plugin only **reads** GLPI data: it never connects to your machines and never
 modifies assets.
@@ -27,20 +29,24 @@ modifies assets.
 
 | | Supported | Tested |
 |---|---|---|
-| GLPI | 10.0.x (`10.0.0` - `10.0.99`) | **10.0.20** (official `glpi/glpi` Docker image) |
-| PHP | 7.4 - 8.3 | 7.4, 8.0, 8.1, 8.2, 8.3 (unit tests); 8.3 (end-to-end) |
-| Database | MariaDB / MySQL supported by GLPI 10 | MariaDB 10.11 |
+| GLPI | 11.0.x (`11.0.0` - `11.0.99`) | **11.0.13** (official `glpi/glpi` Docker image) |
+| PHP | 8.2+ (GLPI 11 requirement) | 8.2, 8.3, 8.4 (unit tests); 8.5.12 (end-to-end, bundled in the image) |
+| Database | MariaDB 10.6+ / MySQL 8.0+ (GLPI 11) | MariaDB 10.11 |
 | Inventory source | GLPI native inventory (GLPI Agent) | GLPI Agent JSON format |
 
-GLPI 11 is **not** supported by the 1.x series; a 2.x series will be made for it
-(the rules live in `src/Core`, which has no GLPI dependency and carries over unchanged).
+| Series | GLPI | Branch |
+|---|---|---|
+| **2.x** | 11.0.x | `main` |
+| 1.x | 10.0.x | `1.x` (bug fixes only) |
+
+The rules live in `src/Core`, which has no GLPI dependency and is shared by both series.
 
 Also required in GLPI:
 
 - **Automatic actions in CLI mode** (the official Docker image does this).
   In GLPI mode they only run while someone browses GLPI.
 - **E-mail notifications enabled** with a working SMTP (Setup > Notifications).
-- Computers must have a **technical group** (field "Group in charge of the hardware")
+- Computers must have a **technical group** (field "Group in charge of the hardware", several allowed in GLPI 11)
   whose members have an e-mail address. The configuration page lists how many
   monitored computers have none.
 
@@ -73,13 +79,13 @@ to install or run it, so it only has to be carried in.
    its `.sha256` file from the
    [Releases](https://github.com/chengyuchen-sideproject/glpi-assetwatch/releases) page
    (or build it from a checkout:
-   `git archive --format=tar.gz --prefix=assetwatch/ -o assetwatch-1.0.0.tar.gz v1.0.0`).
+   `git archive --format=tar.gz --prefix=assetwatch/ -o assetwatch-2.0.0.tar.gz v2.0.0`).
    Avoid GitHub's "Download ZIP": its folder is named `glpi-assetwatch-main` and must be renamed.
 2. Copy both files to the GLPI host, then:
 
    ```bash
-   sha256sum -c assetwatch-1.0.0.tar.gz.sha256
-   tar -xzf assetwatch-1.0.0.tar.gz -C ./glpi_plugins     # creates glpi_plugins/assetwatch
+   sha256sum -c assetwatch-2.0.0.tar.gz.sha256
+   tar -xzf assetwatch-2.0.0.tar.gz -C ./glpi_plugins     # creates glpi_plugins/assetwatch
    chmod -R a+rX ./glpi_plugins/assetwatch                # readable by www-data (uid 33)
    ```
 
@@ -93,7 +99,7 @@ to install or run it, so it only has to be carried in.
 use the *Update* button in **Setup > Plugins**. Alert history in the database is kept.
 
 **GLPI itself not there yet?** Carry the images too:
-`docker save glpi/glpi:10.0.20 mariadb:10.11 -o glpi-images.tar` on the connected
+`docker save glpi/glpi:11.0.13 mariadb:10.11 -o glpi-images.tar` on the connected
 machine, `docker load -i glpi-images.tar` on the offline host.
 
 ### After installation
@@ -128,7 +134,7 @@ change alerts start with the next inventory.
 | `AssetwatchStatus` | 1 h | missing inventories, disk space, reminders, digests |
 | `AssetwatchPurge` | 1 day | remove closed alerts and digests older than 180 days |
 
-GLPI 10.0 has no "inventory finished" hook, so hardware and identity changes are
+GLPI has no "inventory finished" hook, so hardware and identity changes are
 detected by `AssetwatchChanges` within 5 minutes of the inventory. Inventories are
 imported in a database transaction, so a half-imported inventory is never compared.
 
@@ -150,10 +156,11 @@ asset record is ever modified. **Disable** keeps all data.
 ## Development
 
 ```bash
-bash dev/up.sh          # GLPI 10.0.20 + MariaDB 10.11 + Mailpit, plugin installed
+bash dev/up.sh          # GLPI 11.0.13 + MariaDB 10.11 + Mailpit, plugin installed (compose project assetwatch-dev11)
 bash dev/scenarios.sh   # end-to-end checks with fake GLPI Agent inventories
 bash dev/scenarios.sh --keep   # same, but leave test alerts in place to browse in the UI
 php phpunit.phar        # unit tests of src/Core (PHPUnit 9.6)
+docker compose -f dev/docker-compose.yml exec -T glpi php plugins/assetwatch/dev/check_signatures.php   # GLPI method overrides still compatible
 python tools/i18n.py extract|compile|check   # translations
 ```
 
@@ -177,8 +184,19 @@ python tools/i18n.py extract|compile|check   # translations
   `GLPI_LOG_DIR`); check that this path is on a persistent volume.
 - **Time zone**: thresholds use GLPI's time. Keep the container `TIMEZONE` and the
   database time zone consistent, otherwise "hours without inventory" shifts.
-- **GLPI 11**: not compatible with 1.x (GLPI will disable it on upgrade, data stays
-  in the database); install the 2.x series when available.
+- **Upgrading from 1.x (GLPI 10) to 2.x (GLPI 11)**: upgrade GLPI first, replace
+  `glpi_plugins/assetwatch` with 2.x, then click "Update" in **Setup > Plugins** (or
+  `plugin:install --force` + `plugin:activate`). The update:
+  - decodes the HTML-encoded text written by 1.x (`&#38;`..., the GLPI 10 convention),
+    baselines included, so names, models or mount points containing `&` do **not**
+    trigger false change alerts after the upgrade (tested); it can be re-run safely;
+  - adds the "Item" column to the alert list (GLPI 11 no longer shows it implicitly);
+  - keeps open alerts, acknowledgements and history.
+- **Known GLPI limitation (not plugin related)**: computer names / serials stored by
+  GLPI 10 with `&`, `<` or `>` stay encoded after the GLPI 11 upgrade; the next GLPI
+  Agent inventory does not match them and creates a **duplicate computer** (tested;
+  `diagnostic:check_html_encoding` does not handle it). Check before upgrading:
+  `SELECT id, name, serial FROM glpi_computers WHERE name LIKE '%&#%' OR serial LIKE '%&#%' OR uuid LIKE '%&#%';`
 - **Without CLI cron**: works, but checks only run when someone browses GLPI.
 
 ## License

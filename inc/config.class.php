@@ -7,7 +7,7 @@
  */
 
 use Glpi\Application\View\TemplateRenderer;
-use Glpi\Toolbox\Sanitizer;
+use Glpi\DBAL\QuerySubQuery;
 use GlpiPlugin\Assetwatch\Core\Settings;
 
 if (!defined('GLPI_ROOT')) {
@@ -39,9 +39,8 @@ class PluginAssetwatchConfig extends CommonGLPI
     public static function getSettings(): Settings
     {
         if (self::$cache === null) {
-            $values = Config::getConfigurationValues(PluginAssetwatchInstall::CONFIG_CONTEXT);
-            // Stored values follow GLPI's HTML-encoded convention.
-            self::$cache = Settings::fromArray(Sanitizer::decodeHtmlSpecialCharsRecursive($values));
+            // GLPI 11 returns raw values (data written by 1.x is decoded by GLPI on read).
+            self::$cache = Settings::fromArray(Config::getConfigurationValues(PluginAssetwatchInstall::CONFIG_CONTEXT));
         }
         return self::$cache;
     }
@@ -52,7 +51,7 @@ class PluginAssetwatchConfig extends CommonGLPI
     }
 
     /**
-     * Save the form. $input comes from $_POST, already sanitized by GLPI.
+     * Save the form. $input is the raw $_POST (GLPI 11 no longer sanitizes input).
      *
      * @param array<string, mixed> $input
      */
@@ -74,8 +73,8 @@ class PluginAssetwatchConfig extends CommonGLPI
         }
         foreach (['disk_excluded_fs', 'disk_excluded_mounts', 'port_excluded_patterns'] as $list) {
             if (isset($input[$list])) {
-                // Already sanitized by GLPI: only normalize separators.
-                $values[$list] = implode(',', Settings::splitList(str_replace(['\\r', '\\n'], "\n", (string) $input[$list])));
+                // Raw textarea value: one entry per line or comma separated.
+                $values[$list] = implode(',', Settings::splitList(str_replace("\r", "\n", (string) $input[$list])));
             }
         }
 
@@ -85,7 +84,7 @@ class PluginAssetwatchConfig extends CommonGLPI
                 $type_hours[(int) $type_id] = (int) $hours;
             }
         }
-        $values['noreport_type_hours'] = Sanitizer::sanitize(json_encode((object) $type_hours));
+        $values['noreport_type_hours'] = json_encode((object) $type_hours);
 
         // Re-validate through Settings so that the stored values are always usable.
         $settings = Settings::fromArray(array_merge(Settings::DEFAULTS, $values));
@@ -128,11 +127,20 @@ class PluginAssetwatchConfig extends CommonGLPI
             }
         }
 
+        // GLPI 11: technical groups live in glpi_groups_items (type "tech"), not on the computer row.
         $without_group = countElementsInTable('glpi_computers', [
-            'is_deleted'     => 0,
-            'is_template'    => 0,
-            'is_dynamic'     => 1,
-            'groups_id_tech' => 0,
+            'is_deleted'  => 0,
+            'is_template' => 0,
+            'is_dynamic'  => 1,
+            'NOT'         => ['id' => new QuerySubQuery([
+                'SELECT' => 'items_id',
+                'FROM'   => 'glpi_groups_items',
+                'WHERE'  => [
+                    'itemtype'  => 'Computer',
+                    'type'      => Group_Item::GROUP_TYPE_TECH,
+                    'groups_id' => ['>', 0],
+                ],
+            ])],
         ]);
         if ($without_group > 0) {
             $checks[] = ['level' => 'warning', 'message' => sprintf(
@@ -151,15 +159,18 @@ class PluginAssetwatchConfig extends CommonGLPI
 
     public static function showConfigForm(): void
     {
-        /** @var DBmysql $DB */
-        global $DB;
+        /**
+         * @var DBmysql $DB
+         * @var array   $CFG_GLPI
+         */
+        global $DB, $CFG_GLPI;
 
         $settings = self::getSettings();
         $types = [];
         foreach ($DB->request(['SELECT' => ['id', 'name'], 'FROM' => 'glpi_computertypes', 'ORDER' => 'name']) as $row) {
             $types[] = [
                 'id'    => (int) $row['id'],
-                'name'  => Sanitizer::decodeHtmlSpecialChars((string) $row['name']),
+                'name'  => (string) $row['name'],
                 'hours' => $settings->noReportTypeHours[(int) $row['id']] ?? '',
             ];
         }
@@ -169,7 +180,7 @@ class PluginAssetwatchConfig extends CommonGLPI
             'types'       => $types,
             'checks'      => self::healthChecks(),
             'monitored'   => countElementsInTable('glpi_computers', ['is_deleted' => 0, 'is_template' => 0, 'is_dynamic' => 1]),
-            'form_url'    => Plugin::getWebDir('assetwatch') . '/front/config.form.php',
+            'form_url'    => $CFG_GLPI['root_doc'] . '/plugins/assetwatch/front/config.form.php',
             'version'     => PLUGIN_ASSETWATCH_VERSION,
         ]);
     }

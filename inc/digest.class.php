@@ -6,8 +6,6 @@
  * @license GPL-3.0-or-later
  */
 
-use Glpi\Toolbox\Sanitizer;
-
 if (!defined('GLPI_ROOT')) {
     die("Sorry. You can't access this file directly");
 }
@@ -27,12 +25,12 @@ class PluginAssetwatchDigest extends CommonDBTM
         return _n('Asset Watch digest', 'Asset Watch digests', $nb, 'assetwatch');
     }
 
-    public static function canCreate()
+    public static function canCreate(): bool
     {
         return false;
     }
 
-    public static function canUpdate()
+    public static function canUpdate(): bool
     {
         return false;
     }
@@ -47,7 +45,7 @@ class PluginAssetwatchDigest extends CommonDBTM
         /** @var DBmysql $DB */
         global $DB;
 
-        $DB->insert(self::getTable(), PluginAssetwatchAlert::escapeRow([
+        $DB->insert(self::getTable(), [
             'entities_id'    => $digest['entities_id'],
             'groups_id_tech' => $digest['groups_id_tech'],
             'nb_new'         => $digest['nb_new'],
@@ -56,7 +54,7 @@ class PluginAssetwatchDigest extends CommonDBTM
             'content'        => json_encode($digest['entries'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
             'date_creation'  => $now,
             'date_mod'       => $now,
-        ]));
+        ]);
         $stored = new self();
         return $stored->getFromDB((int) $DB->insertId()) ? $stored : null;
     }
@@ -66,7 +64,7 @@ class PluginAssetwatchDigest extends CommonDBTM
      */
     public function getEntries(): array
     {
-        $decoded = json_decode(Sanitizer::decodeHtmlSpecialChars((string) ($this->fields['content'] ?? '')), true);
+        $decoded = json_decode((string) ($this->fields['content'] ?? ''), true);
         return is_array($decoded) ? $decoded : [];
     }
 }

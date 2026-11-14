@@ -6,6 +6,8 @@
  * @license GPL-3.0-or-later
  */
 
+use Glpi\DBAL\QueryExpression;
+
 if (!defined('GLPI_ROOT')) {
     die("Sorry. You can't access this file directly");
 }
@@ -13,7 +15,7 @@ if (!defined('GLPI_ROOT')) {
 /**
  * Read-only access to GLPI inventory data needed by the checks.
  *
- * All SQL lives here, so that porting to GLPI 11 only touches this layer.
+ * All SQL lives here, so that GLPI version differences only touch this layer.
  */
 class PluginAssetwatchRepository
 {
@@ -29,7 +31,7 @@ class PluginAssetwatchRepository
 
         $rows = [];
         $iterator = $DB->request([
-            'SELECT' => ['id', 'name', 'serial', 'entities_id', 'computertypes_id', 'groups_id_tech', 'last_inventory_update'],
+            'SELECT' => ['id', 'name', 'serial', 'entities_id', 'computertypes_id', 'last_inventory_update'],
             'FROM'   => 'glpi_computers',
             'WHERE'  => [
                 'is_deleted'  => 0,
@@ -41,7 +43,7 @@ class PluginAssetwatchRepository
         foreach ($iterator as $row) {
             $rows[(int) $row['id']] = $row;
         }
-        return $rows;
+        return self::withTechGroups('Computer', $rows);
     }
 
     /**
@@ -62,7 +64,6 @@ class PluginAssetwatchRepository
                 'glpi_computers.name',
                 'glpi_computers.serial',
                 'glpi_computers.entities_id',
-                'glpi_computers.groups_id_tech',
                 'glpi_computers.last_inventory_update',
                 "$snapshots.inventory_date AS snapshot_date",
                 "$snapshots.content AS snapshot_content",
@@ -94,6 +95,57 @@ class PluginAssetwatchRepository
         ]);
         foreach ($iterator as $row) {
             $rows[(int) $row['id']] = $row;
+        }
+        return self::withTechGroups('Computer', $rows);
+    }
+
+    /**
+     * Technical groups ("Group in charge") of assets. GLPI 11 stores them in
+     * glpi_groups_items (several groups per asset allowed), no longer in a column.
+     *
+     * @param int[] $ids
+     *
+     * @return array<int, int[]> asset id => sorted group ids (assets without group are absent)
+     */
+    public static function techGroups(string $itemtype, array $ids): array
+    {
+        /** @var DBmysql $DB */
+        global $DB;
+
+        $result = [];
+        foreach (array_chunk(array_values(array_unique(array_map('intval', $ids))), 500) as $chunk) {
+            $iterator = $DB->request([
+                'SELECT' => ['items_id', 'groups_id'],
+                'FROM'   => 'glpi_groups_items',
+                'WHERE'  => [
+                    'itemtype' => $itemtype,
+                    'items_id' => $chunk,
+                    'type'     => Group_Item::GROUP_TYPE_TECH,
+                    'groups_id' => ['>', 0],
+                ],
+                'ORDER'  => ['items_id', 'groups_id'],
+            ]);
+            foreach ($iterator as $row) {
+                $result[(int) $row['items_id']][] = (int) $row['groups_id'];
+            }
+        }
+        return $result;
+    }
+
+    /**
+     * Add `tech_groups` (all technical groups) and `groups_id_tech` (the first one, stored on
+     * alert rows for display and search) to asset rows keyed by id.
+     *
+     * @param array<int, array<string, mixed>> $rows
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public static function withTechGroups(string $itemtype, array $rows): array
+    {
+        $groups = $rows === [] ? [] : self::techGroups($itemtype, array_keys($rows));
+        foreach ($rows as $id => $row) {
+            $rows[$id]['tech_groups']    = $groups[$id] ?? [];
+            $rows[$id]['groups_id_tech'] = $groups[$id][0] ?? 0;
         }
         return $rows;
     }

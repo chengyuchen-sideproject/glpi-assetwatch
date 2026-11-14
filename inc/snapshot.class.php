@@ -6,8 +6,6 @@
  * @license GPL-3.0-or-later
  */
 
-use Glpi\Toolbox\Sanitizer;
-
 if (!defined('GLPI_ROOT')) {
     die("Sorry. You can't access this file directly");
 }
@@ -54,7 +52,7 @@ class PluginAssetwatchSnapshot extends CommonDBTM
         if ($stored === null || $stored === '') {
             return null;
         }
-        $decoded = json_decode(Sanitizer::decodeHtmlSpecialChars($stored), true);
+        $decoded = json_decode($stored, true);
         return is_array($decoded) ? $decoded : null;
     }
 
@@ -66,11 +64,11 @@ class PluginAssetwatchSnapshot extends CommonDBTM
         /** @var DBmysql $DB */
         global $DB;
 
-        $values = PluginAssetwatchAlert::escapeRow([
+        $values = [
             'inventory_date' => $inventory_date,
             'content'        => json_encode($content, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
             'date_mod'       => $now,
-        ]);
+        ];
         if (countElementsInTable(self::getTable(), ['computers_id' => $computers_id]) > 0) {
             $DB->update(self::getTable(), $values, ['computers_id' => $computers_id]);
         } else {

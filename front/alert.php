@@ -8,13 +8,13 @@
  * @license GPL-3.0-or-later
  */
 
-include('../../../inc/includes.php');
+// GLPI 11 boots the application before running this file: no include needed.
 
 Session::checkRight(PluginAssetwatchAlert::$rightname, READ);
 
 Html::header(
     PluginAssetwatchAlert::getTypeName(Session::getPluralNumber()),
-    $_SERVER['PHP_SELF'],
+    PluginAssetwatchAlert::getSearchURL(),
     'tools',
     PluginAssetwatchAlert::class
 );

@@ -45,7 +45,7 @@ log "Installing and activating the plugin"
 console plugin:install --username=glpi assetwatch || true
 console plugin:activate assetwatch || true
 
-log "Creating the 'Server Team' technical group (members: glpi user)"
+log "Creating the 'Server Team' (glpi user) and 'Storage Team' (tech user) technical groups"
 sql "
 INSERT INTO glpi_groups (entities_id, is_recursive, name, completename, level, is_notify, is_assign, is_itemgroup, is_usergroup, is_manager, is_requester, is_watcher, date_creation, date_mod)
 SELECT 0, 1, 'Server Team', 'Server Team', 1, 1, 1, 1, 1, 1, 1, 1, NOW(), NOW()
@@ -57,6 +57,16 @@ WHERE u.name = 'glpi' AND g.name = 'Server Team'
 INSERT INTO glpi_useremails (users_id, is_default, is_dynamic, email)
 SELECT u.id, 1, 0, 'server-team@assetwatch.test' FROM glpi_users u
 WHERE u.name = 'glpi' AND NOT EXISTS (SELECT 1 FROM glpi_useremails e WHERE e.users_id = u.id);
+INSERT INTO glpi_groups (entities_id, is_recursive, name, completename, level, is_notify, is_assign, is_itemgroup, is_usergroup, is_manager, is_requester, is_watcher, date_creation, date_mod)
+SELECT 0, 1, 'Storage Team', 'Storage Team', 1, 1, 1, 1, 1, 1, 1, 1, NOW(), NOW()
+FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM glpi_groups WHERE name = 'Storage Team');
+INSERT INTO glpi_groups_users (users_id, groups_id, is_dynamic, is_manager, is_userdelegate)
+SELECT u.id, g.id, 0, 0, 0 FROM glpi_users u, glpi_groups g
+WHERE u.name = 'tech' AND g.name = 'Storage Team'
+  AND NOT EXISTS (SELECT 1 FROM glpi_groups_users gu WHERE gu.users_id = u.id AND gu.groups_id = g.id);
+INSERT INTO glpi_useremails (users_id, is_default, is_dynamic, email)
+SELECT u.id, 1, 0, 'storage-team@assetwatch.test' FROM glpi_users u
+WHERE u.name = 'tech' AND NOT EXISTS (SELECT 1 FROM glpi_useremails e WHERE e.users_id = u.id);
 "
 
 log "Ready: GLPI http://localhost:8080 (glpi/glpi) - Mailpit http://localhost:8025"

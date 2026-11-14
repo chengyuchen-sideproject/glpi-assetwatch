@@ -19,6 +19,37 @@ final class DigestBuilder
     public const KIND_RESOLVED = 'resolved';
 
     /**
+     * GLPI 11 allows several technical groups per asset: copy each entry once per group
+     * found in its `tech_groups` list, so that every team gets the machine in its digest.
+     * Entries without `tech_groups` keep their single `groups_id_tech` (0 = no group).
+     *
+     * @param array<int, array<string, mixed>> $entries
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public static function expandByGroups(array $entries): array
+    {
+        $expanded = [];
+        foreach ($entries as $entry) {
+            $groups = [];
+            foreach ((array) ($entry['tech_groups'] ?? []) as $group) {
+                if ((int) $group > 0) {
+                    $groups[(int) $group] = true;
+                }
+            }
+            if ($groups === []) {
+                $expanded[] = $entry;
+                continue;
+            }
+            ksort($groups);
+            foreach (array_keys($groups) as $group) {
+                $expanded[] = ['groups_id_tech' => $group] + $entry;
+            }
+        }
+        return $expanded;
+    }
+
+    /**
      * @param array<int, array<string, mixed>> $entries each entry needs: kind, entities_id,
      *        groups_id_tech, item_name, alert_type, alert_key (other keys are carried as-is)
      *

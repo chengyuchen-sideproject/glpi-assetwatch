@@ -67,14 +67,17 @@ class PluginAssetwatchRackWatcher
             'user'     => $users_id > 0 ? getUserName($users_id) : __('Automatic action', 'assetwatch'),
         ];
 
+        $asset = PluginAssetwatchRepository::withTechGroups($item->getType(), [
+            (int) $item->getID() => [
+                'id'          => $item->getID(),
+                'name'        => $item->fields['name'] ?? '',
+                'entities_id' => $item->fields['entities_id'] ?? 0,
+            ],
+        ]);
+
         PluginAssetwatchMonitor::raiseEventAlert(
             $item->getType(),
-            [
-                'id'             => $item->getID(),
-                'name'           => $item->fields['name'] ?? '',
-                'entities_id'    => $item->fields['entities_id'] ?? 0,
-                'groups_id_tech' => $item->fields['groups_id_tech'] ?? 0,
-            ],
+            reset($asset),
             PluginAssetwatchAlert::TYPE_RACK,
             $content,
             $_SESSION['glpi_currenttime'] ?? date('Y-m-d H:i:s')

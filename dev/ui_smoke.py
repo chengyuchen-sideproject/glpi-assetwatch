@@ -92,7 +92,13 @@ def main():
 
     plugin = "/plugins/assetwatch/front"
     status, html = c.get(f"{plugin}/alert.php")
-    page_ok("alert list page", status, html, "aw-")
+    # GLPI 11 renders the list frame with the row count, then loads the rows through AJAX.
+    page_ok("alert list page", status, html, 'data-search-itemtype="PluginAssetwatchAlert"')
+    count = re.search(r'data-count="(\d+)"', html)
+    check("alert list applies the default filter (open alerts only)",
+          bool(count) and 0 < int(count.group(1)) <= 2, f"data-count={count.group(1) if count else '?'}")
+    status, html = c.get("/ajax/search.php?action=display_results&itemtype=PluginAssetwatchAlert", ajax=True)
+    page_ok("alert list rows (AJAX)", status, html, "aw-")
 
     status, html = c.get(f"{plugin}/alert.form.php?id={args.alert_id}")
     page_ok("alert detail page", status, html, "ti-heartbeat")

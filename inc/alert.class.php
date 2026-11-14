@@ -7,7 +7,7 @@
  */
 
 use Glpi\Application\View\TemplateRenderer;
-use Glpi\Toolbox\Sanitizer;
+use Glpi\Search\DefaultSearchRequestInterface;
 use GlpiPlugin\Assetwatch\Core\AlertText;
 use GlpiPlugin\Assetwatch\Core\StatusTracker;
 
@@ -22,7 +22,7 @@ if (!defined('GLPI_ROOT')) {
  * ACTIVE -> (ACKNOWLEDGED) -> RESOLVED; change alerts (hardware, identity,
  * rack) are one-shot EVENT records kept for history.
  */
-class PluginAssetwatchAlert extends CommonDBTM
+class PluginAssetwatchAlert extends CommonDBTM implements DefaultSearchRequestInterface
 {
     public const TYPE_NO_REPORT = AlertText::TYPE_NO_REPORT;
     public const TYPE_DISK_LOW  = AlertText::TYPE_DISK_LOW;
@@ -57,22 +57,22 @@ class PluginAssetwatchAlert extends CommonDBTM
         return 'ti ti-heartbeat';
     }
 
-    public static function canCreate()
+    public static function canCreate(): bool
     {
         return false;
     }
 
-    public static function canUpdate()
+    public static function canUpdate(): bool
     {
         return Session::haveRight(static::$rightname, self::ACKNOWLEDGE);
     }
 
-    public static function canDelete()
+    public static function canDelete(): bool
     {
         return false;
     }
 
-    public static function canPurge()
+    public static function canPurge(): bool
     {
         return false;
     }
@@ -175,7 +175,7 @@ class PluginAssetwatchAlert extends CommonDBTM
     {
         $content = self::decodeContent($fields);
         if ($content === []) {
-            return [Sanitizer::decodeHtmlSpecialChars((string) ($fields['summary'] ?? ''))];
+            return [(string) ($fields['summary'] ?? '')];
         }
 
         switch ($fields['alert_type']) {
@@ -212,11 +212,12 @@ class PluginAssetwatchAlert extends CommonDBTM
                     sprintf(__('Changed by: %s', 'assetwatch'), (string) ($content['user'] ?? '')),
                 ];
         }
-        return [Sanitizer::decodeHtmlSpecialChars((string) ($fields['summary'] ?? ''))];
+        return [(string) ($fields['summary'] ?? '')];
     }
 
     // ---------------------------------------------------------------------
-    // Persistence helpers (raw rows, no GLPI input sanitizing involved)
+    // Persistence helpers. GLPI 11 stores raw values (no HTML encoding) and
+    // escapes them itself in DBmysql::insert()/update(): pass plain strings.
     // ---------------------------------------------------------------------
 
     /**
@@ -237,7 +238,7 @@ class PluginAssetwatchAlert extends CommonDBTM
         /** @var DBmysql $DB */
         global $DB;
 
-        $DB->insert(self::getTable(), self::escapeRow([
+        $DB->insert(self::getTable(), [
             'entities_id'        => (int) ($item['entities_id'] ?? 0),
             'itemtype'           => $itemtype,
             'items_id'           => (int) ($item['id'] ?? 0),
@@ -252,7 +253,7 @@ class PluginAssetwatchAlert extends CommonDBTM
             'date_creation'      => $now,
             'date_mod'           => $now,
             'date_last_notified' => $now,
-        ]));
+        ]);
         return (int) $DB->insertId();
     }
 
@@ -264,43 +265,7 @@ class PluginAssetwatchAlert extends CommonDBTM
         /** @var DBmysql $DB */
         global $DB;
 
-        $DB->update(self::getTable(), self::escapeRow($values), ['id' => $id]);
-    }
-
-    /**
-     * @param array<string, mixed> $row
-     *
-     * @return array<string, mixed>
-     */
-    public static function escapeRow(array $row): array
-    {
-        /** @var DBmysql $DB */
-        global $DB;
-
-        // Follow GLPI 10 storage convention: HTML special chars encoded, then SQL-escaped.
-        foreach ($row as $field => $value) {
-            if (is_string($value)) {
-                $row[$field] = $DB->escape(Sanitizer::encodeHtmlSpecialChars($value));
-            }
-        }
-        return $row;
-    }
-
-    /**
-     * Decode a row read from the database for display (Twig / e-mail escape on their own).
-     *
-     * @param array<string, mixed> $row
-     *
-     * @return array<string, mixed>
-     */
-    public static function decodeRow(array $row): array
-    {
-        foreach ($row as $field => $value) {
-            if (is_string($value)) {
-                $row[$field] = Sanitizer::decodeHtmlSpecialChars($value);
-            }
-        }
-        return $row;
+        $DB->update(self::getTable(), $values, ['id' => $id]);
     }
 
     /**
@@ -310,7 +275,7 @@ class PluginAssetwatchAlert extends CommonDBTM
      */
     public static function decodeContent(array $fields): array
     {
-        $content = json_decode(Sanitizer::decodeHtmlSpecialChars((string) ($fields['content'] ?? '')), true);
+        $content = json_decode((string) ($fields['content'] ?? ''), true);
         return is_array($content) ? $content : [];
     }
 
@@ -375,7 +340,10 @@ class PluginAssetwatchAlert extends CommonDBTM
     // Search
     // ---------------------------------------------------------------------
 
-    public static function getDefaultSearchRequest()
+    /**
+     * Default list filter: open alerts only (GLPI 11 applies it only through the interface).
+     */
+    public static function getDefaultSearchRequest(): array
     {
         return [
             'criteria' => [
@@ -624,7 +592,6 @@ class PluginAssetwatchAlert extends CommonDBTM
         ]);
         foreach ($iterator as $row) {
             $row['lines']        = self::describeLines($row);
-            $row                 = self::decodeRow($row);
             $row['type_label']   = self::typeLabel((string) $row['alert_type']);
             $row['status_label'] = self::statusLabel((int) $row['status']);
             $row['url']          = self::getFormURLWithID((int) $row['id']);
@@ -659,7 +626,7 @@ class PluginAssetwatchAlert extends CommonDBTM
 
         $status = (int) $this->fields['status'];
         TemplateRenderer::getInstance()->display('@assetwatch/alert_form.html.twig', [
-            'alert'        => self::decodeRow($this->fields),
+            'alert'        => $this->fields,
             'type_label'   => self::typeLabel((string) $this->fields['alert_type']),
             'status_label' => self::statusLabel($status),
             'item_type'    => $item ? $item::getTypeName(1) : $this->fields['itemtype'],

@@ -6,8 +6,6 @@
  * @license GPL-3.0-or-later
  */
 
-use Glpi\Toolbox\Sanitizer;
-
 if (!defined('GLPI_ROOT')) {
     die("Sorry. You can't access this file directly");
 }
@@ -63,7 +61,7 @@ class PluginAssetwatchNotificationTargetDigest extends NotificationTarget
             $this->data['alerts'][] = [
                 '##alert.kind##'    => $kinds[$entry['kind']] ?? $entry['kind'],
                 '##alert.type##'    => PluginAssetwatchAlert::typeLabel((string) $entry['alert_type']),
-                '##alert.item##'    => Sanitizer::decodeHtmlSpecialChars((string) $entry['item_name']),
+                '##alert.item##'    => (string) $entry['item_name'],
                 '##alert.details##' => implode(' / ', $lines),
                 '##alert.since##'   => Html::convDateTime($entry['since'] ?? null),
                 '##alert.url##'     => $this->formatURL($usertype, PluginAssetwatchAlert::class . '_' . (int) $entry['alert_id']),

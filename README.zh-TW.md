@@ -4,7 +4,7 @@
 
 [![CI](https://github.com/chengyuchen-sideproject/glpi-assetwatch/actions/workflows/ci.yml/badge.svg)](https://github.com/chengyuchen-sideproject/glpi-assetwatch/actions/workflows/ci.yml)
 
-GLPI 10 外掛。它會看 **GLPI Agent** 回報的資料，伺服器出狀況時寄信給該機器的技術群組：
+GLPI 11 外掛（GLPI 10 請用 1.x 版）。它會看 **GLPI Agent** 回報的資料，伺服器出狀況時寄信給該機器的技術群組：
 
 | 檢查項目 | 規則（預設值） | 寄信方式 |
 |---|---|---|
@@ -16,6 +16,7 @@ GLPI 10 外掛。它會看 **GLPI Agent** 回報的資料，伺服器出狀況�
 
 「沒回報」和「硬碟」這類狀態型告警，**發生時寄一次**，持續中**每 3 天提醒一次**，**恢復時再寄一次**。
 同一輪檢查的所有告警會依技術群組**合併成一封信**。所以交換器故障導致十台伺服器同時斷線時，只會收到一封信，而不是十封。
+GLPI 11 一台設備可以有**多個技術群組**：每個群組各自收到一封彙整信（只列自己負責的機器），單次事件信（硬體、身分、機櫃）會寄給該設備的所有技術群組。
 
 這個外掛只**讀取** GLPI 的資料，不會連到你的機器，也不會修改任何資產。
 
@@ -23,18 +24,23 @@ GLPI 10 外掛。它會看 **GLPI Agent** 回報的資料，伺服器出狀況�
 
 | | 支援範圍 | 實測版本 |
 |---|---|---|
-| GLPI | 10.0.x（`10.0.0` ~ `10.0.99`） | **10.0.20**（官方 `glpi/glpi` Docker 映像檔） |
-| PHP | 7.4 ~ 8.3 | 7.4、8.0、8.1、8.2、8.3（單元測試）；8.3（端到端測試） |
-| 資料庫 | GLPI 10 支援的 MariaDB / MySQL | MariaDB 10.11 |
+| GLPI | 11.0.x（`11.0.0` ~ `11.0.99`） | **11.0.13**（官方 `glpi/glpi` Docker 映像檔） |
+| PHP | 8.2 以上（GLPI 11 的需求） | 8.2、8.3、8.4（單元測試）；8.5.12（端到端測試，映像檔內建） |
+| 資料庫 | GLPI 11 支援的 MariaDB 10.6+ / MySQL 8.0+ | MariaDB 10.11 |
 | 資產資料來源 | GLPI 原生 inventory（GLPI Agent） | GLPI Agent JSON 格式 |
 
-1.x 版**不支援** GLPI 11，之後會另出 2.x 版。判斷規則放在 `src/Core`，不依賴 GLPI，移植時可以原封不動沿用。
+| 版本 | GLPI | 分支 |
+|---|---|---|
+| **2.x** | 11.0.x | `main` |
+| 1.x | 10.0.x | `1.x`（只修錯誤） |
+
+判斷規則放在 `src/Core`，不依賴 GLPI，兩個版本共用。
 
 GLPI 端還需要：
 
 - **自動動作設成 CLI 模式**（官方 Docker 映像檔預設就是）。如果是 GLPI 模式，只有在有人瀏覽 GLPI 時才會執行檢查。
 - **已啟用 E-mail 通知**，而且 SMTP 能正常寄信（設定 > 通知）。
-- 電腦要設定**技術群組**（「負責硬體的群組」欄位），群組成員要有 E-mail。設定頁會顯示有幾台受監看的電腦還沒設定。
+- 電腦要設定**技術群組**（「負責硬體的群組」欄位，GLPI 11 可以選多個），群組成員要有 E-mail。設定頁會顯示有幾台受監看的電腦還沒設定。
 
 ## 安裝
 
@@ -57,12 +63,12 @@ docker exec -u www-data glpi_app php bin/console plugin:activate assetwatch
 
 這個外掛是純 PHP，不需要 Composer、沒有 `vendor/`，也不從 CDN 載入任何東西；翻譯檔（`.mo`）已經編譯好放在裡面。安裝和執行都不需要連網，只要把檔案帶進去就好。
 
-1. 在能上網的電腦，從 [Releases](https://github.com/chengyuchen-sideproject/glpi-assetwatch/releases) 頁面下載 `assetwatch-<版本>.tar.gz` 和對應的 `.sha256` 檔。也可以從原始碼自己打包：`git archive --format=tar.gz --prefix=assetwatch/ -o assetwatch-1.0.0.tar.gz v1.0.0`。不建議用 GitHub 的「Download ZIP」，解開後資料夾會叫 `glpi-assetwatch-main`，必須自己改名。
+1. 在能上網的電腦，從 [Releases](https://github.com/chengyuchen-sideproject/glpi-assetwatch/releases) 頁面下載 `assetwatch-<版本>.tar.gz` 和對應的 `.sha256` 檔。也可以從原始碼自己打包：`git archive --format=tar.gz --prefix=assetwatch/ -o assetwatch-2.0.0.tar.gz v2.0.0`。不建議用 GitHub 的「Download ZIP」，解開後資料夾會叫 `glpi-assetwatch-main`，必須自己改名。
 2. 把兩個檔案帶到 GLPI 主機上，執行：
 
    ```bash
-   sha256sum -c assetwatch-1.0.0.tar.gz.sha256
-   tar -xzf assetwatch-1.0.0.tar.gz -C ./glpi_plugins     # 會建立 glpi_plugins/assetwatch
+   sha256sum -c assetwatch-2.0.0.tar.gz.sha256
+   tar -xzf assetwatch-2.0.0.tar.gz -C ./glpi_plugins     # 會建立 glpi_plugins/assetwatch
    chmod -R a+rX ./glpi_plugins/assetwatch                # 讓容器內的 www-data（uid 33）讀得到
    ```
 
@@ -72,7 +78,7 @@ docker exec -u www-data glpi_app php bin/console plugin:activate assetwatch
 
 **離線升級**：把新版壓縮檔解開覆蓋 `glpi_plugins/assetwatch`，再到 **設定 > 外掛程式** 按「更新」。資料庫裡的告警歷史會保留。
 
-**GLPI 本身也還沒裝？** 映像檔也要一起帶進去：在能上網的電腦執行 `docker save glpi/glpi:10.0.20 mariadb:10.11 -o glpi-images.tar`，到離線主機執行 `docker load -i glpi-images.tar`。
+**GLPI 本身也還沒裝？** 映像檔也要一起帶進去：在能上網的電腦執行 `docker save glpi/glpi:11.0.13 mariadb:10.11 -o glpi-images.tar`，到離線主機執行 `docker load -i glpi-images.tar`。
 
 ### 安裝後
 
@@ -97,7 +103,7 @@ docker exec -u www-data glpi_app php bin/console plugin:activate assetwatch
 | `AssetwatchStatus` | 1 小時 | 檢查沒回報和硬碟空間，寄提醒和彙整信 |
 | `AssetwatchPurge` | 1 天 | 清除超過 180 天的已結案告警和彙整紀錄 |
 
-GLPI 10.0 沒有「inventory 匯入完成」的 hook，所以硬體和身分變動由 `AssetwatchChanges` 偵測，回報後 5 分鐘內會發出。GLPI 匯入 inventory 時包在資料庫 transaction 裡，不會讀到匯入到一半的資料。
+GLPI 沒有「inventory 匯入完成」的 hook，所以硬體和身分變動由 `AssetwatchChanges` 偵測，回報後 5 分鐘內會發出。GLPI 匯入 inventory 時包在資料庫 transaction 裡，不會讀到匯入到一半的資料。
 
 ## 外掛會改動 GLPI 的哪些東西（以及如何還原）
 
@@ -115,10 +121,11 @@ GLPI 10.0 沒有「inventory 匯入完成」的 hook，所以硬體和身分變�
 ## 開發
 
 ```bash
-bash dev/up.sh          # 啟動 GLPI 10.0.20 + MariaDB 10.11 + Mailpit，並安裝外掛
+bash dev/up.sh          # 啟動 GLPI 11.0.13 + MariaDB 10.11 + Mailpit，並安裝外掛（compose 專案名稱 assetwatch-dev11）
 bash dev/scenarios.sh   # 用模擬的 GLPI Agent 回報跑端到端情境測試
 bash dev/scenarios.sh --keep   # 同上，但保留測試告警，方便到介面上查看
 php phpunit.phar        # src/Core 的單元測試（PHPUnit 9.6）
+docker compose -f dev/docker-compose.yml exec -T glpi php plugins/assetwatch/dev/check_signatures.php   # 覆寫的 GLPI 方法簽章是否相容
 python tools/i18n.py extract|compile|check   # 翻譯檔
 ```
 
@@ -134,7 +141,11 @@ python tools/i18n.py extract|compile|check   # 翻譯檔
 - **換行字元**：repo 用 `.gitattributes` 強制 LF。如果從 Windows 用其他方式複製檔案，請保持 LF。PHP 本身不在意換行，但 Git diff 會出現整檔差異。
 - **Docker volume**：正式環境的 compose 中，外掛目錄是掛到 `/var/www/glpi/plugins` 的主機路徑。注意：官方映像檔把 GLPI 的設定、檔案和 log 放在 `/var/glpi`（`GLPI_CONFIG_DIR`、`GLPI_VAR_DIR`、`GLPI_LOG_DIR`），請確認這個路徑有掛到持久化的 volume。
 - **時區**：門檻是用 GLPI 的時間計算。容器的 `TIMEZONE` 要和資料庫時區一致，否則「沒回報幾小時」會算偏。
-- **GLPI 11**：1.x 版不相容。升級後 GLPI 會自動停用本外掛，但資料會留在資料庫裡；屆時改裝 2.x 版即可。
+- **從 1.x（GLPI 10）升級到 2.x（GLPI 11）**：先把 GLPI 升到 11，再把 `glpi_plugins/assetwatch` 換成 2.x 版，到 **設定 > 外掛程式** 按「更新」（或 `plugin:install --force` + `plugin:activate`）。升級程式會：
+  - 把 1.x 存的 HTML 編碼文字（`&#38;` 等，GLPI 10 的慣例）解回原文，包括比對基準裡的值，所以升級後**不會**因為名稱、型號、掛載點含 `&` 而誤報變動（實測）；可以重複執行。
+  - 告警列表補上「項目」欄（GLPI 11 不再自動顯示第一欄）。
+  - 進行中的告警、確認狀態、歷史都保留。
+- **GLPI 本身的已知限制（不是外掛問題）**：GLPI 10 存進資料庫的電腦序號 / 名稱如果含 `&`、`<`、`>`，升到 GLPI 11 後仍是編碼形式，GLPI Agent 下次回報時比對不到，會**新增一台重複的電腦**（實測；`diagnostic:check_html_encoding` 不處理這種資料）。升級前可先查：`SELECT id, name, serial FROM glpi_computers WHERE name LIKE '%&#%' OR serial LIKE '%&#%' OR uuid LIKE '%&#%';`
 - **沒有 CLI cron**：還是能運作，但只有在有人瀏覽 GLPI 時才會執行檢查。
 
 ## 授權

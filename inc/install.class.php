@@ -6,7 +6,7 @@
  * @license GPL-3.0-or-later
  */
 
-use Glpi\Toolbox\Sanitizer;
+use Glpi\Toolbox\SanitizedStringsDecoder;
 
 if (!defined('GLPI_ROOT')) {
     die("Sorry. You can't access this file directly");
@@ -24,9 +24,26 @@ class PluginAssetwatchInstall
     public const RIGHT_ALERT  = 'plugin_assetwatch_alert';
     public const RIGHT_CONFIG = 'plugin_assetwatch_config';
 
+    /**
+     * Config key telling how text is stored in the plugin tables. 1.x (GLPI 10) never wrote it;
+     * 2.x writes "raw" once the data is in GLPI 11 form. The version recorded in glpi_plugins
+     * cannot be used: GLPI already sets it to the new version before calling the install.
+     */
+    public const STORAGE_FORMAT_KEY = 'storage_format';
+
     public static function install(Migration $migration): void
     {
+        /** @var DBmysql $DB */
+        global $DB;
+
+        // Tables existing before this run = upgrade (or reinstall); missing = fresh install.
+        $had_data = $DB->tableExists(PluginAssetwatchAlert::getTable());
+
         self::createTables($migration);
+        if ($had_data && Config::getConfigurationValue(self::CONFIG_CONTEXT, self::STORAGE_FORMAT_KEY) !== 'raw') {
+            self::decodeLegacyData($migration);
+        }
+        Config::setConfigurationValues(self::CONFIG_CONTEXT, [self::STORAGE_FORMAT_KEY => 'raw']);
         self::installConfig();
         self::installRights();
         self::installCronTasks();
@@ -46,7 +63,10 @@ class PluginAssetwatchInstall
             }
         }
 
-        Config::deleteConfigurationValues(self::CONFIG_CONTEXT, array_keys(PluginAssetwatchConfig::defaults()));
+        Config::deleteConfigurationValues(
+            self::CONFIG_CONTEXT,
+            array_merge(array_keys(PluginAssetwatchConfig::defaults()), [self::STORAGE_FORMAT_KEY])
+        );
         ProfileRight::deleteProfileRights([self::RIGHT_ALERT, self::RIGHT_CONFIG]);
         CronTask::unregister('assetwatch');
         self::uninstallNotifications();
@@ -154,6 +174,87 @@ class PluginAssetwatchInstall
                 KEY `date_creation` (`date_creation`),
                 KEY `date_mod` (`date_mod`)
             ) ENGINE=InnoDB DEFAULT CHARSET={$charset} COLLATE={$collation} ROW_FORMAT=DYNAMIC", $DB->error());
+        }
+    }
+
+    /**
+     * 1.x ran on GLPI 10, which stored text HTML-encoded (`&#38;`, `&#60;`, `&#62;`), and the
+     * JSON documents held values that were already encoded when read from GLPI tables.
+     * GLPI 11 works with raw strings: decode every stored string once (and every string inside
+     * the JSON documents), otherwise the first new inventory of a host whose name/port contains
+     * one of these characters would look like an identity change.
+     * The decoder only touches strings that look encoded, so running it twice is harmless.
+     */
+    private static function decodeLegacyData(Migration $migration): void
+    {
+        /** @var DBmysql $DB */
+        global $DB;
+
+        $decoder = new SanitizedStringsDecoder();
+        $decode_json = static function (?string $json) use ($decoder): ?string {
+            $data = $json === null || $json === '' ? null : json_decode($json, true);
+            if (!is_array($data)) {
+                return $json;
+            }
+            array_walk_recursive($data, static function (&$value) use ($decoder): void {
+                if (is_string($value)) {
+                    // Values read from GLPI 10 tables (encoded) were encoded again on write.
+                    $value = $decoder->decodeHtmlSpecialChars($decoder->decodeHtmlSpecialChars($value));
+                }
+            });
+            return json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        };
+
+        $plan = [
+            PluginAssetwatchAlert::getTable()    => [['item_name', 'alert_key', 'summary', 'ack_comment'], ['content']],
+            PluginAssetwatchSnapshot::getTable() => [[], ['content']],
+            PluginAssetwatchDigest::getTable()   => [[], ['content']],
+        ];
+
+        // A database upgraded from GLPI 10 has "must_unsanitize_db_data" on: GLPI decodes every
+        // string on read. Read the stored values as they are, so that they really get rewritten,
+        // then restore the flag as GLPI configured it.
+        $unsanitize_on_read = (bool) (Config::getConfigurationValue('core', 'must_unsanitize_db_data') ?? true);
+        $DB->setMustUnsanitizeData(false);
+        try {
+            self::rewriteDecoded($plan, $decoder, $decode_json, $migration);
+        } finally {
+            $DB->setMustUnsanitizeData($unsanitize_on_read);
+        }
+    }
+
+    /**
+     * @param array<string, array{0: string[], 1: string[]}> $plan table => [text fields, JSON fields]
+     */
+    private static function rewriteDecoded(array $plan, SanitizedStringsDecoder $decoder, callable $decode_json, Migration $migration): void
+    {
+        /** @var DBmysql $DB */
+        global $DB;
+
+        foreach ($plan as $table => [$text_fields, $json_fields]) {
+            $changed = 0;
+            foreach ($DB->request(['FROM' => $table]) as $row) {
+                $update = [];
+                foreach ($text_fields as $field) {
+                    if (is_string($row[$field] ?? null)) {
+                        $decoded = $decoder->decodeHtmlSpecialChars($decoder->decodeHtmlSpecialChars($row[$field]));
+                        if ($decoded !== $row[$field]) {
+                            $update[$field] = $decoded;
+                        }
+                    }
+                }
+                foreach ($json_fields as $field) {
+                    $decoded = $decode_json($row[$field] ?? null);
+                    if ($decoded !== ($row[$field] ?? null)) {
+                        $update[$field] = $decoded;
+                    }
+                }
+                if ($update !== []) {
+                    $DB->update($table, $update, ['id' => $row['id']]);
+                    $changed++;
+                }
+            }
+            $migration->displayMessage(sprintf('Asset Watch 2.0: %d row(s) of %s decoded from GLPI 10 encoding', $changed, $table));
         }
     }
 
@@ -299,9 +400,9 @@ class PluginAssetwatchInstall
                 (new NotificationTemplateTranslation())->add([
                     'notificationtemplates_id' => $templates_id,
                     'language'                 => $language,
-                    'subject'                  => Sanitizer::sanitize($translation['subject']),
-                    'content_text'             => Sanitizer::sanitize($translation['text']),
-                    'content_html'             => Sanitizer::sanitize($translation['html']),
+                    'subject'                  => $translation['subject'],
+                    'content_text'             => $translation['text'],
+                    'content_html'             => $translation['html'],
                 ]);
             }
             $templates[$key] = $templates_id;
@@ -342,13 +443,24 @@ class PluginAssetwatchInstall
         global $DB;
 
         $itemtype = PluginAssetwatchAlert::class;
-        if (countElementsInTable('glpi_displaypreferences', ['itemtype' => $itemtype, 'users_id' => 0]) > 0) {
+        $existing = countElementsInTable('glpi_displaypreferences', ['itemtype' => $itemtype, 'users_id' => 0]);
+        if ($existing > 0) {
+            // GLPI 10 always showed search option 1 (the asset name) as first column; GLPI 11 shows
+            // only the configured columns. Add it once to lists configured by 1.x.
+            if (countElementsInTable('glpi_displaypreferences', ['itemtype' => $itemtype, 'users_id' => 0, 'num' => 1]) === 0) {
+                $DB->insert('glpi_displaypreferences', [
+                    'itemtype' => $itemtype,
+                    'num'      => 1,
+                    'rank'     => 0,
+                    'users_id' => 0,
+                ]);
+            }
             return;
         }
         $rank = 1;
-        foreach ([3, 4, 5, 6, 15] as $num) {
+        foreach ([1, 3, 4, 5, 6, 15] as $num) {
             $DB->insert('glpi_displaypreferences', [
-                'itemtype' => $DB->escape($itemtype),
+                'itemtype' => $itemtype,
                 'num'      => $num,
                 'rank'     => $rank++,
                 'users_id' => 0,

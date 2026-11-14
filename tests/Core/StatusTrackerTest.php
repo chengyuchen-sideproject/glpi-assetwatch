@@ -140,6 +140,28 @@ final class StatusTrackerTest extends TestCase
         $this->assertSame(1, $digests[1]['nb_reminder']);
     }
 
+    public function testExpandByGroupsGivesEveryTeamItsCopy(): void
+    {
+        $entries = [
+            // GLPI 11: two technical groups (listed out of order, with a duplicate and a 0)
+            ['kind' => 'new', 'entities_id' => 0, 'groups_id_tech' => 9, 'tech_groups' => [9, 5, 9, 0], 'item_name' => 'web01', 'alert_type' => 'no_report', 'alert_key' => ''],
+            // no technical group at all
+            ['kind' => 'new', 'entities_id' => 0, 'groups_id_tech' => 0, 'tech_groups' => [], 'item_name' => 'lab01', 'alert_type' => 'no_report', 'alert_key' => ''],
+            // entry built without the list (single group, GLPI 10 style)
+            ['kind' => 'new', 'entities_id' => 0, 'groups_id_tech' => 7, 'item_name' => 'db01', 'alert_type' => 'no_report', 'alert_key' => ''],
+        ];
+        $expanded = DigestBuilder::expandByGroups($entries);
+        $this->assertSame(
+            [['web01', 5], ['web01', 9], ['lab01', 0], ['db01', 7]],
+            array_map(static fn (array $e): array => [$e['item_name'], $e['groups_id_tech']], $expanded)
+        );
+
+        $digests = DigestBuilder::build($expanded);
+        $this->assertSame([0, 5, 7, 9], array_column($digests, 'groups_id_tech'));
+        $this->assertSame(['web01'], array_column($digests[1]['entries'], 'item_name'));
+        $this->assertSame(['web01'], array_column($digests[3]['entries'], 'item_name'));
+    }
+
     public function testRackChangeDescriptions(): void
     {
         $a = ['rack' => 'R01', 'position' => 12, 'orientation' => 0, 'hpos' => 0];

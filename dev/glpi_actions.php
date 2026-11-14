@@ -16,7 +16,11 @@ if (PHP_SAPI !== 'cli') {
 }
 
 chdir('/var/www/glpi');
-include '/var/www/glpi/inc/includes.php';
+// GLPI 11: boot the kernel (database connection, configuration, active plugins and their hooks)
+// the same way bin/console does; inc/includes.php no longer bootstraps anything.
+require '/var/www/glpi/vendor/autoload.php';
+$kernel = new \Glpi\Kernel\Kernel();
+$kernel->boot();
 
 // Act as the "glpi" super-admin, like a logged-in technician.
 $user = new User();

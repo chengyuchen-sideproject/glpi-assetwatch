@@ -6,7 +6,6 @@
  * @license GPL-3.0-or-later
  */
 
-use Glpi\Toolbox\Sanitizer;
 use GlpiPlugin\Assetwatch\Core\AlertText;
 
 if (!defined('GLPI_ROOT')) {
@@ -47,15 +46,20 @@ class PluginAssetwatchNotificationTargetAlert extends NotificationTarget
 
         $this->data['##assetwatch.action##']   = $events[$event] ?? $event;
         $this->data['##assetwatch.itemtype##'] = $item_class ? $item_class::getTypeName(1) : $item_type;
-        $this->data['##assetwatch.item##']     = Sanitizer::decodeHtmlSpecialChars((string) $fields['item_name']);
+        $this->data['##assetwatch.item##']     = (string) $fields['item_name'];
         $this->data['##assetwatch.itemurl##']  = $this->formatURL($usertype, $item_type . '_' . $fields['items_id']);
         $this->data['##assetwatch.url##']      = $this->formatURL($usertype, PluginAssetwatchAlert::class . '_' . $fields['id']);
         $this->data['##assetwatch.date##']     = Html::convDateTime($fields['date_creation']);
-        $this->data['##assetwatch.group##']    = $fields['groups_id_tech'] > 0
-            ? Dropdown::getDropdownName('glpi_groups', (int) $fields['groups_id_tech'], false, true, false, '')
-            : '';
+        // One group id, or a list when the asset has several technical groups (GLPI 11)
+        $group_names = [];
+        foreach ((array) $fields['groups_id_tech'] as $group_id) {
+            if ((int) $group_id > 0) {
+                $group_names[] = Dropdown::getDropdownName('glpi_groups', (int) $group_id, false, true, false, '');
+            }
+        }
+        $this->data['##assetwatch.group##']    = implode(', ', $group_names);
         $this->data['##assetwatch.entity##']   = Dropdown::getDropdownName('glpi_entities', (int) $fields['entities_id'], false, true, false, '');
-        $this->data['##assetwatch.summary##']  = Sanitizer::decodeHtmlSpecialChars((string) $fields['summary']);
+        $this->data['##assetwatch.summary##']  = (string) $fields['summary'];
         $this->data['##assetwatch.user##']     = (string) ($content['user'] ?? '');
         $this->data['##assetwatch.inventorydate##'] = !empty($content['inventory_date']) ? Html::convDateTime($content['inventory_date']) : '';
 

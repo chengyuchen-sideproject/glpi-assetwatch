@@ -44,8 +44,8 @@ expect() {
 
 count_alerts() { sql "SELECT COUNT(*) FROM glpi_plugin_assetwatch_alerts WHERE $1"; }
 
-# Text columns follow GLPI 10 storage convention: "&", "<", ">" are HTML-encoded.
-ARROW='-&#62;'
+# GLPI 11 stores raw text (GLPI 10 HTML-encoded "&", "<", ">").
+ARROW='->'
 
 
 flush_mail() {
@@ -67,6 +67,20 @@ mail_text_count() {
         total=$((total + $(curl -s "http://localhost:8025/api/v1/message/$id" | py -c "import json,sys; print(1 if sys.argv[1] in json.load(sys.stdin).get('Text', '') else 0)" "$1")))
     done
     echo "$total"
+}
+
+mail_text_count_in() {
+    # mail_text_count_in <subject substring> <substring of the plain-text body>
+    local total=0
+    for id in $(mails | py -c "import json,sys; [print(m['ID']) for m in json.load(sys.stdin).get('messages', []) if sys.argv[1] in m.get('Subject', '')]" "$1"); do
+        total=$((total + $(curl -s "http://localhost:8025/api/v1/message/$id" | py -c "import json,sys; print(1 if sys.argv[1] in json.load(sys.stdin).get('Text', '') else 0)" "$2")))
+    done
+    echo "$total"
+}
+
+mail_recipients() {
+    # mail_recipients <subject substring> -> sorted unique recipient addresses, comma separated
+    mails | py -c "import json,sys; d=json.load(sys.stdin); print(','.join(sorted({t['Address'] for m in d.get('messages', []) if sys.argv[1] in m.get('Subject', '') for t in m.get('To', [])})))" "$1"
 }
 
 mail_debug() {
@@ -99,8 +113,13 @@ log "1. First inventories only record a baseline"
 agent aw-web01
 agent aw-web02
 agent aw-win01 --os windows
-GROUP_ID=$(sql "SELECT id FROM glpi_groups WHERE name='Server Team'")
-sql "UPDATE glpi_computers SET groups_id_tech=$GROUP_ID WHERE name IN ('aw-web01','aw-web02','aw-win01');"
+# GLPI 11: technical groups are rows of glpi_groups_items (type 2 = tech), several per asset.
+# aw-win01 belongs to two teams: its status news must reach both digests.
+sql "DELETE gi FROM glpi_groups_items gi JOIN glpi_computers c ON c.id=gi.items_id AND gi.itemtype='Computer' WHERE c.name LIKE 'aw-%';
+INSERT INTO glpi_groups_items (groups_id, itemtype, items_id, type)
+SELECT g.id, 'Computer', c.id, 2 FROM glpi_groups g, glpi_computers c
+WHERE (g.name='Server Team' AND c.name IN ('aw-web01','aw-web02','aw-win01'))
+   OR (g.name='Storage Team' AND c.name='aw-win01');"
 cron AssetwatchChanges
 expect "3 baselines recorded" 3 "$(sql "SELECT COUNT(*) FROM glpi_plugin_assetwatch_snapshots s JOIN glpi_computers c ON c.id=s.computers_id WHERE c.name LIKE 'aw-%'")"
 expect "no alert after baseline" 0 "$(count_alerts '1=1')"
@@ -135,7 +154,8 @@ cron AssetwatchStatus
 expect "no_report alert on aw-web02" 1 "$(count_alerts "alert_type='no_report' AND item_name='aw-web02' AND status=1")"
 cron AssetwatchStatus
 expect "second run does not duplicate" 1 "$(count_alerts "alert_type='no_report' AND item_name='aw-web02'")"
-expect "two digests so far (one per run with news)" 2 "$(sql "SELECT COUNT(*) FROM glpi_plugin_assetwatch_digests")"
+# Run of step 5: one digest per team of aw-win01 (Server + Storage); run of step 6: Server Team.
+expect "three digests so far (one per team and run with news)" 3 "$(sql "SELECT COUNT(*) FROM glpi_plugin_assetwatch_digests")"
 
 log "7. Rack placement through GLPI objects (real hook)"
 glpi_action rack-place aw-web01 R01 10 >/dev/null
@@ -143,6 +163,8 @@ glpi_action rack-place aw-web01 R02 20 >/dev/null
 glpi_action rack-remove aw-web01 >/dev/null
 expect "3 rack events (added, moved, removed)" 3 "$(count_alerts "alert_type='rack' AND item_name='aw-web01'")"
 expect "move described with old and new rack" 1 "$(count_alerts "alert_type='rack' AND summary LIKE '%R01 / U10 $ARROW R02 / U20%'")"
+glpi_action rack-place aw-win01 R04 1 >/dev/null
+expect "rack event on a machine of two teams is recorded once" 1 "$(count_alerts "alert_type='rack' AND item_name='aw-win01'")"
 
 log "8. Recovery"
 agent aw-win01 --os windows --disk C::51200:40960
@@ -156,7 +178,10 @@ flush_mail
 expect "hardware change mail" 1 "$(mail_count 'Hardware change: aw-web01')"
 expect "identity change mail" 1 "$(mail_count 'Identity change: aw-web02')"
 expect "rack change mails" 3 "$(mail_count 'Rack placement change: aw-web01')"
+expect "rack change of aw-win01 reaches both teams" "server-team@assetwatch.test,storage-team@assetwatch.test" "$(mail_recipients 'Rack placement change: aw-win01')"
 expect "status digest mails" 3 "$(mail_count '[Asset Watch] Server Team')"
+expect "second team gets its own digests (disk low + resolved)" 2 "$(mail_count '[Asset Watch] Storage Team')"
+expect "Storage Team digests only list aw-win01" 0 "$(mail_text_count_in 'Storage Team' 'aw-web0')"
 [ "$FAIL" -gt 0 ] && mail_debug
 
 log "10. Web UI (pages, tabs, forms)"

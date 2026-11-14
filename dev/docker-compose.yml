@@ -1,6 +1,6 @@
 # Asset Watch - local development / test stack.
 #
-# Mirrors the production layout (official glpi/glpi:10.0.20 + mariadb:10.11)
+# Mirrors the production layout (official glpi/glpi:11.0.13 + mariadb:10.11)
 # without nginx/SSL, plus Mailpit to catch every e-mail GLPI sends.
 #
 #   GLPI     http://localhost:8080   (glpi / glpi)
@@ -8,7 +8,8 @@
 #
 # The repository root is mounted as /var/www/glpi/plugins/assetwatch.
 
-name: assetwatch-dev
+# GLPI 11 stack (2.x). The 1.x branch keeps the GLPI 10 stack under the name "assetwatch-dev".
+name: assetwatch-dev11
 
 services:
   mariadb:
@@ -27,7 +28,7 @@ services:
       retries: 30
 
   glpi:
-    image: glpi/glpi:10.0.20
+    image: glpi/glpi:11.0.13
     environment:
       TIMEZONE: Asia/Taipei
       GLPI_DB_HOST: mariadb

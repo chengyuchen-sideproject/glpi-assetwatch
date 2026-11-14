@@ -12,10 +12,10 @@
 
 use Glpi\Plugin\Hooks;
 
-define('PLUGIN_ASSETWATCH_VERSION', '1.0.0');
-// Supported GLPI range: 10.0.x only (GLPI 11 will be handled by the 2.x branch).
-define('PLUGIN_ASSETWATCH_MIN_GLPI', '10.0.0');
-define('PLUGIN_ASSETWATCH_MAX_GLPI', '10.0.99');
+define('PLUGIN_ASSETWATCH_VERSION', '2.0.0');
+// Supported GLPI range: 11.0.x (GLPI 10 is handled by the 1.x branch).
+define('PLUGIN_ASSETWATCH_MIN_GLPI', '11.0.0');
+define('PLUGIN_ASSETWATCH_MAX_GLPI', '11.0.99');
 
 /**
  * Plugin initialization, called on every GLPI page load.
@@ -82,7 +82,7 @@ function plugin_version_assetwatch()
                 'max' => PLUGIN_ASSETWATCH_MAX_GLPI,
             ],
             'php' => [
-                'min' => '7.4',
+                'min' => '8.2',
             ],
         ],
     ];

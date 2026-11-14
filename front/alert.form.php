@@ -8,7 +8,7 @@
  * @license GPL-3.0-or-later
  */
 
-include('../../../inc/includes.php');
+// GLPI 11 boots the application before running this file: no include needed.
 
 Session::checkRight(PluginAssetwatchAlert::$rightname, READ);
 
@@ -24,8 +24,8 @@ if (isset($_POST['acknowledge']) || isset($_POST['unacknowledge'])) {
         if ($until !== '' && strtotime($until) === false) {
             $until = '';
         }
-        // $_POST is already sanitized by GLPI; store the comment as-is (decoded once, re-encoded by updateAlert).
-        $comment = Glpi\Toolbox\Sanitizer::unsanitize((string) ($_POST['ack_comment'] ?? ''));
+        // GLPI 11 passes $_POST raw; the comment is stored as typed and escaped on output.
+        $comment = (string) ($_POST['ack_comment'] ?? '');
         if ($alert->acknowledge($comment, $until !== '' ? date('Y-m-d H:i:s', strtotime($until)) : null)) {
             Session::addMessageAfterRedirect(__('Alert acknowledged.', 'assetwatch'));
         }
@@ -38,7 +38,7 @@ if (isset($_POST['acknowledge']) || isset($_POST['unacknowledge'])) {
 $id = (int) ($_GET['id'] ?? 0);
 Html::header(
     PluginAssetwatchAlert::getTypeName(1),
-    $_SERVER['PHP_SELF'],
+    PluginAssetwatchAlert::getFormURL(),
     'tools',
     PluginAssetwatchAlert::class
 );
