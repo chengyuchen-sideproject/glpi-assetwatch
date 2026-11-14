@@ -12,7 +12,7 @@
 
 use Glpi\Plugin\Hooks;
 
-define('PLUGIN_ASSETWATCH_VERSION', '2.0.0');
+define('PLUGIN_ASSETWATCH_VERSION', '2.1.0');
 // Supported GLPI range: 11.0.x (GLPI 10 is handled by the 1.x branch).
 define('PLUGIN_ASSETWATCH_MIN_GLPI', '11.0.0');
 define('PLUGIN_ASSETWATCH_MAX_GLPI', '11.0.99');
@@ -60,6 +60,9 @@ function plugin_init_assetwatch()
     if (Session::haveRight(PluginAssetwatchAlert::$rightname, READ)) {
         $PLUGIN_HOOKS[Hooks::MENU_TOADD]['assetwatch'] = ['tools' => PluginAssetwatchAlert::class];
     }
+
+    // Cards for GLPI dashboards (the callable checks the read right itself).
+    $PLUGIN_HOOKS[Hooks::DASHBOARD_CARDS]['assetwatch'] = [PluginAssetwatchDashboard::class, 'cards'];
     if (Session::haveRight(PluginAssetwatchConfig::$rightname, UPDATE)) {
         $PLUGIN_HOOKS[Hooks::CONFIG_PAGE]['assetwatch'] = 'front/config.form.php';
     }

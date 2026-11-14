@@ -49,6 +49,7 @@ class PluginAssetwatchInstall
         self::installCronTasks();
         self::installNotifications();
         self::installDisplayPreferences();
+        PluginAssetwatchDashboard::installDefaultDashboard();
         $migration->executeMigration();
     }
 
@@ -70,6 +71,7 @@ class PluginAssetwatchInstall
         ProfileRight::deleteProfileRights([self::RIGHT_ALERT, self::RIGHT_CONFIG]);
         CronTask::unregister('assetwatch');
         self::uninstallNotifications();
+        PluginAssetwatchDashboard::uninstallDashboards();
 
         $itemtypes = [PluginAssetwatchAlert::class, PluginAssetwatchDigest::class, PluginAssetwatchSnapshot::class];
         foreach (['glpi_displaypreferences', 'glpi_savedsearches', 'glpi_logs', 'glpi_queuednotifications'] as $table) {

@@ -79,13 +79,13 @@ to install or run it, so it only has to be carried in.
    its `.sha256` file from the
    [Releases](https://github.com/chengyuchen-sideproject/glpi-assetwatch/releases) page
    (or build it from a checkout:
-   `git archive --format=tar.gz --prefix=assetwatch/ -o assetwatch-2.0.0.tar.gz v2.0.0`).
+   `git archive --format=tar.gz --prefix=assetwatch/ -o assetwatch-2.1.0.tar.gz v2.1.0`).
    Avoid GitHub's "Download ZIP": its folder is named `glpi-assetwatch-main` and must be renamed.
 2. Copy both files to the GLPI host, then:
 
    ```bash
-   sha256sum -c assetwatch-2.0.0.tar.gz.sha256
-   tar -xzf assetwatch-2.0.0.tar.gz -C ./glpi_plugins     # creates glpi_plugins/assetwatch
+   sha256sum -c assetwatch-2.1.0.tar.gz.sha256
+   tar -xzf assetwatch-2.1.0.tar.gz -C ./glpi_plugins     # creates glpi_plugins/assetwatch
    chmod -R a+rX ./glpi_plugins/assetwatch                # readable by www-data (uid 33)
    ```
 
@@ -126,6 +126,28 @@ change alerts start with the next inventory.
   `Asset Watch - ...`. Templates exist in English and Traditional Chinese; each
   recipient gets their GLPI language.
 
+### Dashboard (since 2.1)
+
+The install creates an **"Asset Watch" dashboard** (**Assets > Dashboard**, selector at the
+top left), and the cards below can be added to **any** dashboard: "Edit" at the top right,
+"+" on the grid, group "Asset Watch". Cards can be moved, resized, recolored, switched to
+another chart type or removed.
+
+| Card | Widgets | Shows | Click opens |
+|---|---|---|---|
+| Monitored computers | big number | computers reported by GLPI Agent (not deleted) | computer list |
+| Offline computers (no inventory) | big number | computers over the "no inventory" threshold now (per type, **computed live**, no need to wait for the hourly check) | no-inventory alerts |
+| Computers with low disk space | big number | computers with an open disk alert | disk alerts |
+| Open alerts | big number | active + acknowledged | alert list |
+| Computer health | summary / pie / donut / bars... | healthy / offline / low disk | matching list |
+| Open alerts by type | same | no inventory, disk | matching list |
+| Offline computers (list) | search list | which machines, since when, group in charge | - |
+| Change events (last 30 days) | bars / line | hardware, identity and rack changes per day; the card "limit" = number of recent days shown | - |
+
+- Numbers follow the active **entities**; users without the "Asset alerts: Read" right do not
+  get the cards (the "Asset Watch" dashboard is shared with the profiles having that right).
+- The "Asset Watch" dashboard is created only once: your layout changes are never overwritten.
+
 ### Automatic actions
 
 | Name | Frequency | Job |
@@ -148,6 +170,7 @@ imported in a database transaction, so a half-imported inventory is never compar
 | 3 automatic actions | yes | deleted |
 | 4 notifications + 2 templates (`Asset Watch - ...`) | only if missing (your edits are kept on upgrade) | deleted, with queued e-mails |
 | Default list columns | only if none defined | deleted |
+| "Asset Watch" dashboard (2.1) | only if missing | deleted, Asset Watch cards placed on other dashboards too |
 
 **Uninstall** (Setup > Plugins) removes everything listed above; the plugin's
 alert history is lost (export the list first if needed). No core GLPI table or

@@ -100,6 +100,27 @@ def main():
     status, html = c.get("/ajax/search.php?action=display_results&itemtype=PluginAssetwatchAlert", ajax=True)
     page_ok("alert list rows (AJAX)", status, html, "aw-")
 
+    # Dashboard cards (2.1): every card of the "Asset Watch" dashboard renders through GLPI's AJAX endpoint.
+    cards = [
+        ("monitored", "bigNumber", "Monitored computers"),
+        ("offline", "bigNumber", "Offline computers"),
+        ("disklow", "bigNumber", "low disk space"),
+        ("openalerts", "bigNumber", "Open alerts"),
+        ("health", "donut", "Computer health"),
+        ("bytype", "bar", "Open alerts by type"),
+        ("changes", "bar", "Change events"),
+        # at this step every machine reports again: the list renders, empty
+        ("offlinelist", "searchShowList", "Offline computers (list)"),
+    ]
+    for card, widget, marker in cards:
+        query = urllib.parse.urlencode({
+            "action": "get_card", "dashboard": "asset-watch", "card_id": f"plugin_assetwatch_{card}",
+            # the web UI always sends a color; the list widget fails without one
+            "args[widgettype]": widget, "args[limit]": 30, "args[color]": "#ffffff", "force": 1,
+        })
+        status, html = c.get(f"/ajax/dashboard.php?{query}", ajax=True)
+        page_ok(f"dashboard card {card} ({widget})", status, html, marker)
+
     status, html = c.get(f"{plugin}/alert.form.php?id={args.alert_id}")
     page_ok("alert detail page", status, html, "ti-heartbeat")
 

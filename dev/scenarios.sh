@@ -246,10 +246,14 @@ expect "templates removed" 0 "$(sql "SELECT COUNT(*) FROM glpi_notificationtempl
 expect "automatic actions removed" 0 "$(sql "SELECT COUNT(*) FROM glpi_crontasks WHERE itemtype LIKE 'PluginAssetwatch%'")"
 expect "rights removed" 0 "$(sql "SELECT COUNT(*) FROM glpi_profilerights WHERE name LIKE 'plugin_assetwatch%'")"
 expect "config removed" 0 "$(sql "SELECT COUNT(*) FROM glpi_configs WHERE context='plugin:assetwatch'")"
+expect "dashboard removed" 0 "$(sql "SELECT COUNT(*) FROM glpi_dashboards_dashboards WHERE \`key\`='asset-watch'")"
+expect "plugin cards removed from every dashboard" 0 "$(sql "SELECT COUNT(*) FROM glpi_dashboards_items WHERE card_id LIKE 'plugin_assetwatch_%'")"
 "${COMPOSE[@]}" exec -T glpi php bin/console plugin:install --username=glpi assetwatch >/dev/null
 "${COMPOSE[@]}" exec -T glpi php bin/console plugin:activate assetwatch >/dev/null
 expect "reinstall: 4 notifications" 4 "$(sql "SELECT COUNT(*) FROM glpi_notifications WHERE itemtype LIKE 'PluginAssetwatch%'")"
 expect "reinstall: 3 automatic actions in CLI mode" 3 "$(sql "SELECT COUNT(*) FROM glpi_crontasks WHERE itemtype LIKE 'PluginAssetwatch%' AND mode=2")"
+expect "reinstall: dashboard with 8 cards" 8 "$(sql "SELECT COUNT(*) FROM glpi_dashboards_items i JOIN glpi_dashboards_dashboards d ON d.id=i.dashboards_dashboards_id WHERE d.\`key\`='asset-watch'")"
+expect "reinstall: dashboard visible to Super-Admin" 1 "$(sql "SELECT COUNT(*) FROM glpi_dashboards_rights r JOIN glpi_dashboards_dashboards d ON d.id=r.dashboards_dashboards_id JOIN glpi_profiles p ON p.id=r.items_id AND r.itemtype='Profile' WHERE d.\`key\`='asset-watch' AND p.name='Super-Admin'")"
 expect "reinstall: Super-Admin has full alert rights" 257 "$(sql "SELECT pr.rights FROM glpi_profilerights pr JOIN glpi_profiles p ON p.id=pr.profiles_id WHERE p.name='Super-Admin' AND pr.name='plugin_assetwatch_alert'")"
 "${COMPOSE[@]}" exec -T glpi php bin/console plugin:install --username=glpi --force assetwatch >/dev/null
 expect "re-running install does not duplicate notifications" 4 "$(sql "SELECT COUNT(*) FROM glpi_notifications WHERE itemtype LIKE 'PluginAssetwatch%'")"

@@ -16,11 +16,11 @@ msgstr ""
 msgid "Acknowledgement removed: reminders resume."
 msgstr ""
 
-#: front/config.form.php:21
+#: front/config.form.php:28
 msgid "Configuration saved."
 msgstr ""
 
-#: inc/alert.class.php:52 inc/profile.class.php:23 inc/profile.class.php:68 templates/config.html.twig:8
+#: inc/alert.class.php:52 inc/dashboard.class.php:58 inc/profile.class.php:23 inc/profile.class.php:68 templates/config.html.twig:8
 msgid "Asset Watch"
 msgstr ""
 
@@ -32,19 +32,19 @@ msgstr ""
 msgid "No inventory"
 msgstr ""
 
-#: inc/alert.class.php:109 templates/config.html.twig:32
+#: inc/alert.class.php:109 inc/dashboard.class.php:191 templates/config.html.twig:32
 msgid "Low disk space"
 msgstr ""
 
-#: inc/alert.class.php:110 inc/notificationtargetalert.class.php:24
+#: inc/alert.class.php:110 inc/notificationtargetalert.class.php:23
 msgid "Hardware change"
 msgstr ""
 
-#: inc/alert.class.php:111 inc/notificationtargetalert.class.php:25
+#: inc/alert.class.php:111 inc/notificationtargetalert.class.php:24
 msgid "Identity change"
 msgstr ""
 
-#: inc/alert.class.php:112 inc/notificationtargetalert.class.php:26 templates/config.html.twig:35
+#: inc/alert.class.php:112 inc/notificationtargetalert.class.php:25 templates/config.html.twig:35
 msgid "Rack placement change"
 msgstr ""
 
@@ -56,11 +56,11 @@ msgstr ""
 msgid "Acknowledged"
 msgstr ""
 
-#: inc/alert.class.php:124 inc/notificationtargetdigest.class.php:43
+#: inc/alert.class.php:124 inc/notificationtargetdigest.class.php:41
 msgid "Resolved"
 msgstr ""
 
-#: inc/alert.class.php:125 inc/notificationtargetalert.class.php:101
+#: inc/alert.class.php:125 inc/notificationtargetalert.class.php:105
 msgid "Event"
 msgstr ""
 
@@ -108,39 +108,39 @@ msgstr ""
 msgid "Changed by: %s"
 msgstr ""
 
-#: inc/alert.class.php:441 inc/notificationtargetalert.class.php:109 inc/notificationtargetdigest.class.php:95 templates/alert_form.html.twig:29 templates/item_alerts.html.twig:19
+#: inc/alert.class.php:409 inc/notificationtargetalert.class.php:113 inc/notificationtargetdigest.class.php:93 templates/alert_form.html.twig:29 templates/item_alerts.html.twig:19
 msgid "Details"
 msgstr ""
 
-#: inc/alert.class.php:470 templates/alert_form.html.twig:55
+#: inc/alert.class.php:438 templates/alert_form.html.twig:55
 msgid "Acknowledged by"
 msgstr ""
 
-#: inc/alert.class.php:480
+#: inc/alert.class.php:448
 msgid "Acknowledgement comment"
 msgstr ""
 
-#: inc/alert.class.php:489 templates/alert_form.html.twig:45
+#: inc/alert.class.php:457 templates/alert_form.html.twig:45
 msgid "Last notification"
 msgstr ""
 
-#: inc/alert.class.php:507 templates/alert_form.html.twig:62
+#: inc/alert.class.php:475 templates/alert_form.html.twig:62
 msgid "Silenced until"
 msgstr ""
 
-#: inc/alert.class.php:516
+#: inc/alert.class.php:484
 msgid "Key"
 msgstr ""
 
-#: inc/alert.class.php:685
+#: inc/alert.class.php:652
 msgid "Asset Watch: detect hardware and identity changes"
 msgstr ""
 
-#: inc/alert.class.php:687
+#: inc/alert.class.php:654
 msgid "Asset Watch: check missing inventories and disk space"
 msgstr ""
 
-#: inc/alert.class.php:689
+#: inc/alert.class.php:656
 msgid "Asset Watch: purge old history"
 msgstr ""
 
@@ -154,115 +154,155 @@ msgstr[1] ""
 msgid "Asset Watch configuration"
 msgstr ""
 
-#: inc/config.class.php:115
+#: inc/config.class.php:114
 msgid "E-mail notifications are disabled in GLPI (Setup > Notifications): no alert will be sent."
 msgstr ""
 
-#: inc/config.class.php:121
+#: inc/config.class.php:120
 msgid "Automatic action %s is missing: reinstall the plugin."
 msgstr ""
 
-#: inc/config.class.php:125
+#: inc/config.class.php:124
 msgid "Automatic action %s is disabled."
 msgstr ""
 
-#: inc/config.class.php:127
+#: inc/config.class.php:126
 msgid "Automatic action %s runs in GLPI mode: it only runs when someone browses GLPI. Switch it to CLI."
 msgstr ""
 
-#: inc/config.class.php:139
+#: inc/config.class.php:147
 msgid "%d monitored computer has no technical group: its alerts are recorded but nobody is notified."
 msgid_plural "%d monitored computers have no technical group: their alerts are recorded but nobody is notified."
 msgstr[0] ""
 msgstr[1] ""
 
-#: inc/digest.class.php:27
+#: inc/dashboard.class.php:65 inc/dashboard.class.php:128
+msgid "Monitored computers"
+msgstr "Monitored computers"
+
+#: inc/dashboard.class.php:71 inc/dashboard.class.php:143
+msgid "Offline computers (no inventory)"
+msgstr "Offline computers (no inventory)"
+
+#: inc/dashboard.class.php:77 inc/dashboard.class.php:158
+msgid "Computers with low disk space"
+msgstr "Computers with low disk space"
+
+#: inc/dashboard.class.php:83 inc/dashboard.class.php:173
+msgid "Open alerts"
+msgstr "Open alerts"
+
+#: inc/dashboard.class.php:89 inc/dashboard.class.php:196
+msgid "Computer health"
+msgstr "Computer health"
+
+#: inc/dashboard.class.php:95 inc/dashboard.class.php:220
+msgid "Open alerts by type"
+msgstr "Open alerts by type"
+
+#: inc/dashboard.class.php:102 inc/dashboard.class.php:237
+msgid "Offline computers (list)"
+msgstr "Offline computers (list)"
+
+#: inc/dashboard.class.php:108 inc/dashboard.class.php:278
+msgid "Change events (last %d days)"
+msgstr "Change events (last %d days)"
+
+#: inc/dashboard.class.php:189
+msgid "Healthy"
+msgstr "Healthy"
+
+#: inc/dashboard.class.php:190
+msgid "Offline"
+msgstr "Offline"
+
+#: inc/digest.class.php:25
 msgid "Asset Watch digest"
 msgid_plural "Asset Watch digests"
 msgstr[0] ""
 msgstr[1] ""
 
-#: inc/notificationtargetalert.class.php:34
+#: inc/notificationtargetalert.class.php:33
 msgid "Group in charge of the asset"
 msgstr ""
 
-#: inc/notificationtargetalert.class.php:104 inc/notificationtargetdigest.class.php:98
+#: inc/notificationtargetalert.class.php:108 inc/notificationtargetdigest.class.php:96
 msgid "Item URL"
 msgstr ""
 
-#: inc/notificationtargetalert.class.php:105 inc/notificationtargetdigest.class.php:97
+#: inc/notificationtargetalert.class.php:109 inc/notificationtargetdigest.class.php:95
 msgid "Alert URL"
 msgstr ""
 
-#: inc/notificationtargetalert.class.php:110
+#: inc/notificationtargetalert.class.php:114
 msgid "Changed by"
 msgstr ""
 
-#: inc/notificationtargetalert.class.php:111
+#: inc/notificationtargetalert.class.php:115
 msgid "Inventory date"
 msgstr ""
 
-#: inc/notificationtargetalert.class.php:113
+#: inc/notificationtargetalert.class.php:117
 msgid "Change"
 msgstr ""
 
-#: inc/notificationtargetalert.class.php:114
+#: inc/notificationtargetalert.class.php:118
 msgid "Before"
 msgstr ""
 
-#: inc/notificationtargetalert.class.php:115
+#: inc/notificationtargetalert.class.php:119
 msgid "After"
 msgstr ""
 
-#: inc/notificationtargetalert.class.php:116
+#: inc/notificationtargetalert.class.php:120
 msgid "Before -> after"
 msgstr ""
 
-#: inc/notificationtargetalert.class.php:123
+#: inc/notificationtargetalert.class.php:127
 msgid "List of changes"
 msgstr ""
 
-#: inc/notificationtargetdigest.class.php:22
+#: inc/notificationtargetdigest.class.php:20
 msgid "Asset status digest"
 msgstr ""
 
-#: inc/notificationtargetdigest.class.php:29
+#: inc/notificationtargetdigest.class.php:27
 msgid "Group in charge of the assets"
 msgstr ""
 
-#: inc/notificationtargetdigest.class.php:41
+#: inc/notificationtargetdigest.class.php:39
 msgid "New"
 msgstr ""
 
-#: inc/notificationtargetdigest.class.php:42
+#: inc/notificationtargetdigest.class.php:40
 msgid "Still active"
 msgstr ""
 
-#: inc/notificationtargetdigest.class.php:85
+#: inc/notificationtargetdigest.class.php:83
 msgid "Number of new alerts"
 msgstr ""
 
-#: inc/notificationtargetdigest.class.php:86
+#: inc/notificationtargetdigest.class.php:84
 msgid "Number of reminders"
 msgstr ""
 
-#: inc/notificationtargetdigest.class.php:87
+#: inc/notificationtargetdigest.class.php:85
 msgid "Number of resolved alerts"
 msgstr ""
 
-#: inc/notificationtargetdigest.class.php:88
+#: inc/notificationtargetdigest.class.php:86
 msgid "Total"
 msgstr ""
 
-#: inc/notificationtargetdigest.class.php:91
+#: inc/notificationtargetdigest.class.php:89
 msgid "Alert list URL"
 msgstr ""
 
-#: inc/notificationtargetdigest.class.php:96
+#: inc/notificationtargetdigest.class.php:94
 msgid "Since"
 msgstr ""
 
-#: inc/notificationtargetdigest.class.php:105
+#: inc/notificationtargetdigest.class.php:103
 msgid "List of alerts"
 msgstr ""
 
@@ -270,7 +310,7 @@ msgstr ""
 msgid "Automatic action"
 msgstr ""
 
-#: inc/snapshot.class.php:24
+#: inc/snapshot.class.php:22
 msgid "Baseline"
 msgid_plural "Baselines"
 msgstr[0] ""

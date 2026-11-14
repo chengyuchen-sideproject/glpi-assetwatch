@@ -63,12 +63,12 @@ docker exec -u www-data glpi_app php bin/console plugin:activate assetwatch
 
 這個外掛是純 PHP，不需要 Composer、沒有 `vendor/`，也不從 CDN 載入任何東西；翻譯檔（`.mo`）已經編譯好放在裡面。安裝和執行都不需要連網，只要把檔案帶進去就好。
 
-1. 在能上網的電腦，從 [Releases](https://github.com/chengyuchen-sideproject/glpi-assetwatch/releases) 頁面下載 `assetwatch-<版本>.tar.gz` 和對應的 `.sha256` 檔。也可以從原始碼自己打包：`git archive --format=tar.gz --prefix=assetwatch/ -o assetwatch-2.0.0.tar.gz v2.0.0`。不建議用 GitHub 的「Download ZIP」，解開後資料夾會叫 `glpi-assetwatch-main`，必須自己改名。
+1. 在能上網的電腦，從 [Releases](https://github.com/chengyuchen-sideproject/glpi-assetwatch/releases) 頁面下載 `assetwatch-<版本>.tar.gz` 和對應的 `.sha256` 檔。也可以從原始碼自己打包：`git archive --format=tar.gz --prefix=assetwatch/ -o assetwatch-2.1.0.tar.gz v2.1.0`。不建議用 GitHub 的「Download ZIP」，解開後資料夾會叫 `glpi-assetwatch-main`，必須自己改名。
 2. 把兩個檔案帶到 GLPI 主機上，執行：
 
    ```bash
-   sha256sum -c assetwatch-2.0.0.tar.gz.sha256
-   tar -xzf assetwatch-2.0.0.tar.gz -C ./glpi_plugins     # 會建立 glpi_plugins/assetwatch
+   sha256sum -c assetwatch-2.1.0.tar.gz.sha256
+   tar -xzf assetwatch-2.1.0.tar.gz -C ./glpi_plugins     # 會建立 glpi_plugins/assetwatch
    chmod -R a+rX ./glpi_plugins/assetwatch                # 讓容器內的 www-data（uid 33）讀得到
    ```
 
@@ -95,6 +95,24 @@ docker exec -u www-data glpi_app php bin/console plugin:activate assetwatch
 - **資產上的「資產告警」分頁**：顯示這台的告警歷史和目前的比對基準。電腦有這個分頁；網路設備、機箱、PDU 等可以放進機櫃的設備也有，但只會出現機櫃變更的告警。
 - **信件內容與收件人**：到 **設定 > 通知** 調整名稱為 `Asset Watch - ...` 的通知。範本有英文和繁體中文兩版，收件人會依自己在 GLPI 設定的語言收到對應的版本。
 
+### 儀表板（2.1 起）
+
+安裝後會多一個 **「Asset Watch」儀表板**（**資產 > 儀表板**，左上下拉選單切換），也可以把下列卡片加到**任何**儀表板：按儀表板右上的「編輯」，在格子上按「+」新增卡片，群組選「資產監看」。卡片能自由拖拉、調整大小、換顏色、換圖表類型，或刪掉不要的。
+
+| 卡片 | 圖表類型 | 內容 | 點下去 |
+|---|---|---|---|
+| 受監看的電腦 | 大數字 | GLPI Agent 回報的電腦總數（未刪除） | 電腦列表 |
+| 離線電腦（沒回報） | 大數字 | 現在已超過「沒回報」門檻的電腦（依電腦類型門檻**即時計算**，不必等每小時的檢查） | 沒回報告警 |
+| 硬碟空間不足的電腦 | 大數字 | 有進行中硬碟告警的電腦 | 硬碟告警 |
+| 進行中的告警 | 大數字 | 觸發中＋已確認 | 告警列表 |
+| 電腦狀態 | 摘要數字／圓餅／甜甜圈／長條… | 正常／離線／硬碟不足 | 對應列表 |
+| 進行中告警（依類型） | 同上 | 沒回報、硬碟 | 對應列表 |
+| 離線電腦清單 | 搜尋清單 | 哪幾台離線、多久沒回報、負責群組 | — |
+| 變動事件（最近 30 天） | 長條／折線 | 每天的硬體、身分、機櫃變動數；卡片的「上限」= 顯示最近幾天 | — |
+
+- 數字依目前選的**實體**計算；沒有「資產告警：讀取」權限的人看不到這些卡片（安裝時只把「Asset Watch」儀表板開給有這個權限的設定檔）。
+- 「Asset Watch」儀表板只在第一次安裝時建立，之後你改過的版面不會被覆蓋。
+
 ### 自動動作
 
 | 名稱 | 頻率 | 工作 |
@@ -115,6 +133,7 @@ GLPI 沒有「inventory 匯入完成」的 hook，所以硬體和身分變動由
 | 3 個自動動作 | 建立 | 刪除 |
 | 4 個通知 + 2 個信件範本（`Asset Watch - ...`） | 不存在時才建立（升級時保留你改過的內容） | 刪除，佇列中尚未寄出的信也一併刪除 |
 | 列表預設欄位 | 尚未設定時才建立 | 刪除 |
+| 「Asset Watch」儀表板（2.1） | 不存在時才建立 | 刪除；放在其他儀表板上的資產監看卡片也一併移除 |
 
 **移除（Uninstall）** 會清掉上表所有東西，外掛的告警歷史也會一併刪除。如果需要保留，請先從列表匯出。外掛不會修改任何 GLPI 核心資料表或資產紀錄。**停用（Disable）** 則會保留所有資料。
 
