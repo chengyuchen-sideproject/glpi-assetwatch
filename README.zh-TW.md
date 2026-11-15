@@ -21,7 +21,7 @@ GLPI 11 一台設備可以有**多個技術群組**：每個群組各自收到�
 這個外掛只**讀取** GLPI 的資料，不會連到你的機器，也不會修改任何資產（2.3 手動填寫的接線存在外掛自己的資料表，並在設備的歷史紀錄留一行）。
 
 2.2 起另有**機房盤點**頁（依機櫃列出每個機房的設備、即時狀態與到現場要確認的落差）和儀表板的**「機房」篩選**。
-2.3 起再加上每個機房的**平面圖**、可列印的**機櫃 QR code 標籤**，以及**網路架構圖**（哪台設備接到哪台 switch）。2.4 起有**機櫃 QR 貼紙**，掃了看該機櫃的即時內容。
+2.3 起再加上每個機房的**平面圖**、可列印的**機櫃 QR code 標籤**，以及**網路架構圖**（哪台設備接到哪台 switch）。2.4 起有**機櫃 QR 貼紙**，掃了看該機櫃的即時內容。2.5 起有兩次回報之間的**主動偵測**（agent 與機櫃設備存活偵測、立即回報、非預期重開機、防毒、agent 版本、硬碟趨勢）。
 
 ## 需求與相容版本
 
@@ -66,12 +66,12 @@ docker exec -u www-data glpi_app php bin/console plugin:activate assetwatch
 
 這個外掛是純 PHP，不需要 Composer、沒有 `vendor/`，也不從 CDN 載入任何東西；翻譯檔（`.mo`）已經編譯好放在裡面。安裝和執行都不需要連網，只要把檔案帶進去就好。
 
-1. 在能上網的電腦，從 [Releases](https://github.com/chengyuchen-sideproject/glpi-assetwatch/releases) 頁面下載 `assetwatch-<版本>.tar.gz` 和對應的 `.sha256` 檔。也可以從原始碼自己打包：`git archive --format=tar.gz --prefix=assetwatch/ -o assetwatch-2.4.0.tar.gz v2.4.0`。不建議用 GitHub 的「Download ZIP」，解開後資料夾會叫 `glpi-assetwatch-main`，必須自己改名。
+1. 在能上網的電腦，從 [Releases](https://github.com/chengyuchen-sideproject/glpi-assetwatch/releases) 頁面下載 `assetwatch-<版本>.tar.gz` 和對應的 `.sha256` 檔。也可以從原始碼自己打包：`git archive --format=tar.gz --prefix=assetwatch/ -o assetwatch-2.5.0.tar.gz v2.5.0`。不建議用 GitHub 的「Download ZIP」，解開後資料夾會叫 `glpi-assetwatch-main`，必須自己改名。
 2. 把兩個檔案帶到 GLPI 主機上，執行：
 
    ```bash
-   sha256sum -c assetwatch-2.4.0.tar.gz.sha256
-   tar -xzf assetwatch-2.4.0.tar.gz -C ./glpi_plugins     # 會建立 glpi_plugins/assetwatch
+   sha256sum -c assetwatch-2.5.0.tar.gz.sha256
+   tar -xzf assetwatch-2.5.0.tar.gz -C ./glpi_plugins     # 會建立 glpi_plugins/assetwatch
    chmod -R a+rX ./glpi_plugins/assetwatch                # 讓容器內的 www-data（uid 33）讀得到
    ```
 
@@ -156,13 +156,34 @@ docker exec -u www-data glpi_app php bin/console plugin:activate assetwatch
 - **同一個 port 重複**：同一台網路設備的同一個 port 記錄了不只一台設備時會列出來。
 - **匯出 CSV**（每條接線一行，最後是沒有接線紀錄的設備）與**列印**。
 
+### 主動偵測（2.5 起）
+
+GLPI Agent 只有在回報時才帶資料進來。2.5 加了幾種檢查，在兩次回報之間就能發現問題，或從回報資料裡看出異常：
+
+| 檢查 | 怎麼做 | 告警 | 預設 |
+|---|---|---|---|
+| **存活偵測** | 每 5 分鐘（自動動作 `AssetwatchProbe`）問一次每台 GLPI Agent 是否還在（跟 GLPI agent 頁面上查狀態是同一個請求）；agent 沒回應，就改試著連它的 IP 的 TCP 埠（預設 22、3389、443、80）。機櫃上沒有 agent 的設備（switch、PDU…）只用 TCP 檢查 | **無回應**（完全沒回應）／**Agent 無回應**（機器有回應 TCP、agent 沒回應：服務停了或埠被擋），連續 N 次（預設 2 次，約 10 分鐘）才告警；恢復回應就結案 | **關閉** |
+| **立即回報** | 盤點頁的按鈕：要求這個機房（或機櫃）的每台 agent 立刻回報一次 | - | 需要「電腦：更新」權限 |
+| **非預期重開機** | agent 回報的開機時間變了；可設定每日不通知時段（例如 `02:00-06:00`）給排定的重開機 | 單次通知 | 開啟 |
+| **防毒異常** | agent 回報防毒停用、病毒碼未更新或授權過期 | 直到恢復 | 開啟 |
+| **GLPI Agent 版本過舊** | agent 版本低於設定的最低版本（設定頁會列出目前使用中的版本） | 直到更新 | 關閉（未設最低版本） |
+| **硬碟即將不足** | 每個分割區最近 30 天剩餘空間的線性趨勢（每次回報記一筆，保留 60 天），預計 N 天內（預設 14 天）低於空間不足門檻 | 直到趨勢改變 | 開啟 |
+
+這些告警都跟「沒回報」、「硬碟空間不足」一樣，合併在技術群組的彙整信裡。
+
+- 存活偵測需要 agent 以服務方式常駐（Windows／Linux 安裝包的預設），而且防火牆要允許 GLPI 主機連到各機器的 **TCP 62354**（以及設定的 TCP 埠）。「立即回報」另外需要把 GLPI 主機加進 agent 的 **`httpd-trust`** 設定。
+- 設定頁的「**立即偵測一次（測試，不寄信）**」可以在啟用前先看哪些機器連不到。如果一次大部分目標都沒回應（至少 10 台中 80%），會判斷是 GLPI 主機端的網路問題，告警維持原狀，不會一口氣開一堆。
+- 盤點頁的設備狀態會參考存活偵測（無回應就算離線），並顯示最後回應時間。
+- CPU／記憶體即時用量、服務狀態、RAID／SMART、溫度不在 GLPI Agent 的回報範圍內，這些請用監控系統。
+
 ### 自動動作
 
 | 名稱 | 頻率 | 工作 |
 |---|---|---|
 | `AssetwatchChanges` | 5 分鐘 | 把新的回報和比對基準比較（硬體變動、身分變動） |
 | `AssetwatchStatus` | 1 小時 | 檢查沒回報和硬碟空間，寄提醒和彙整信 |
-| `AssetwatchPurge` | 1 天 | 清除超過 180 天的已結案告警和彙整紀錄 |
+| `AssetwatchPurge` | 1 天 | 清除超過 180 天的已結案告警和彙整紀錄，以及超過 60 天的硬碟趨勢紀錄 |
+| `AssetwatchProbe`（2.5） | 5 分鐘 | 存活偵測（在設定頁啟用前不做任何事） |
 
 GLPI 沒有「inventory 匯入完成」的 hook，所以硬體和身分變動由 `AssetwatchChanges` 偵測，回報後 5 分鐘內會發出。GLPI 匯入 inventory 時包在資料庫 transaction 裡，不會讀到匯入到一半的資料。
 
@@ -170,10 +191,10 @@ GLPI 沒有「inventory 匯入完成」的 hook，所以硬體和身分變動由
 
 | 異動 | 安裝時 | 移除外掛時 |
 |---|---|---|
-| 資料表 `glpi_plugin_assetwatch_alerts`、`_snapshots`、`_digests`、`_uplinks`（2.3） | 建立 | 刪除 |
+| 資料表 `glpi_plugin_assetwatch_alerts`、`_snapshots`、`_digests`、`_uplinks`（2.3）、`_probes`、`_diskhistories`（2.5） | 建立 | 刪除 |
 | 設定值（context 為 `plugin:assetwatch`） | 寫入預設值，不覆蓋已存在的值 | 刪除 |
 | 權限 `plugin_assetwatch_alert`、`plugin_assetwatch_config` | 開給能修改 GLPI 設定的設定檔 | 刪除 |
-| 3 個自動動作 | 建立 | 刪除 |
+| 4 個自動動作 | 建立 | 刪除 |
 | 4 個通知 + 2 個信件範本（`Asset Watch - ...`） | 不存在時才建立（升級時保留你改過的內容） | 刪除，佇列中尚未寄出的信也一併刪除 |
 | 列表預設欄位 | 尚未設定時才建立 | 刪除 |
 | 「Asset Watch」儀表板（2.1） | 不存在時才建立 | 刪除；放在其他儀表板上的資產監看卡片也一併移除 |
@@ -202,6 +223,7 @@ python tools/i18n.py extract|compile|check   # 翻譯檔
 - **資料夾名稱**必須維持 `assetwatch`，GLPI 會用它推算資料表和類別名稱。
 - **換行字元**：repo 用 `.gitattributes` 強制 LF。如果從 Windows 用其他方式複製檔案，請保持 LF。PHP 本身不在意換行，但 Git diff 會出現整檔差異。
 - **Docker volume**：正式環境的 compose 中，外掛目錄是掛到 `/var/www/glpi/plugins` 的主機路徑。注意：官方映像檔把 GLPI 的設定、檔案和 log 放在 `/var/glpi`（`GLPI_CONFIG_DIR`、`GLPI_VAR_DIR`、`GLPI_LOG_DIR`），請確認這個路徑有掛到持久化的 volume。
+- **存活偵測（2.5）**：連線是從 GLPI 主機發出的（Docker 的話是從 GLPI 容器經 Docker 網路出去）。搬到新主機後，新主機一樣要連得到各機器的 TCP 62354 和設定的埠；「立即回報」還要把新主機加進 agent 的 `httpd-trust`。重新啟用前先按「立即偵測一次」測試。
 - **時區**：門檻是用 GLPI 的時間計算。容器的 `TIMEZONE` 要和資料庫時區一致，否則「沒回報幾小時」會算偏。
 - **從 1.x（GLPI 10）升級到 2.x（GLPI 11）**：先把 GLPI 升到 11，再把 `glpi_plugins/assetwatch` 換成 2.x 版，到 **設定 > 外掛程式** 按「更新」（或 `plugin:install --force` + `plugin:activate`）。升級程式會：
   - 把 1.x 存的 HTML 編碼文字（`&#38;` 等，GLPI 10 的慣例）解回原文，包括比對基準裡的值，所以升級後**不會**因為名稱、型號、掛載點含 `&` 而誤報變動（實測）；可以重複執行。

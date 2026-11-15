@@ -16,7 +16,23 @@ msgstr "告警已確認。"
 msgid "Acknowledgement removed: reminders resume."
 msgstr "已取消確認：恢復提醒。"
 
-#: front/config.form.php:28
+#: front/audit.php:27
+msgid "You need the right to update computers."
+msgstr "需要「電腦：更新」權限。"
+
+#: front/audit.php:31
+msgid "Inventory requested from %1$d of %2$d agent(s): their data arrives in a few minutes, then reload the page."
+msgstr "已要求 %2$d 台中的 %1$d 台 agent 立即回報：資料幾分鐘內會進來，之後重新整理頁面。"
+
+#: front/audit.php:37
+msgid "%1$d agent(s) refused (the GLPI host is not in their httpd-trust option): %2$s"
+msgstr "%1$d 台 agent 拒絕（GLPI 主機不在它的 httpd-trust 設定裡）：%2$s"
+
+#: front/audit.php:44
+msgid "%1$d agent(s) did not answer (machine off, agent not running as a service, or port 62354 filtered): %2$s"
+msgstr "%1$d 台 agent 沒有回應（關機、agent 沒有以服務方式常駐，或 62354 埠被擋）：%2$s"
+
+#: front/config.form.php:34
 msgid "Configuration saved."
 msgstr "設定已儲存。"
 
@@ -28,140 +44,216 @@ msgstr "接線已儲存：新增 %1$d 筆、移除 %2$d 筆。"
 msgid "%d connection(s) refused (asset or network device not found, or not visible)."
 msgstr "%d 筆接線沒有存（找不到設備或網路設備，或沒有權限看到）。"
 
-#: inc/alert.class.php:52 inc/dashboard.class.php:61 inc/profile.class.php:23 inc/profile.class.php:68 templates/config.html.twig:8
+#: inc/alert.class.php:69 inc/dashboard.class.php:61 inc/profile.class.php:23 inc/profile.class.php:68 templates/config.html.twig:8
 msgid "Asset Watch"
 msgstr "資產監看"
 
-#: inc/alert.class.php:84 templates/alert_form.html.twig:77 templates/alert_form.html.twig:96
+#: inc/alert.class.php:101 templates/alert_form.html.twig:77 templates/alert_form.html.twig:96
 msgid "Acknowledge"
 msgstr "確認告警"
 
-#: inc/alert.class.php:108
+#: inc/alert.class.php:125
 msgid "No inventory"
 msgstr "沒回報"
 
-#: inc/alert.class.php:109 inc/audit.class.php:581 inc/dashboard.class.php:207 templates/config.html.twig:32
+#: inc/alert.class.php:126 inc/audit.class.php:585 inc/dashboard.class.php:207 templates/config.html.twig:32
 msgid "Low disk space"
 msgstr "硬碟空間不足"
 
-#: inc/alert.class.php:110 inc/notificationtargetalert.class.php:23
+#: inc/alert.class.php:127 inc/notificationtargetalert.class.php:23
 msgid "Hardware change"
 msgstr "硬體變動"
 
-#: inc/alert.class.php:111 inc/notificationtargetalert.class.php:24
+#: inc/alert.class.php:128 inc/notificationtargetalert.class.php:24
 msgid "Identity change"
 msgstr "身分變動"
 
-#: inc/alert.class.php:112 inc/notificationtargetalert.class.php:25 templates/config.html.twig:35
+#: inc/alert.class.php:129 inc/notificationtargetalert.class.php:25 templates/config.html.twig:35
 msgid "Rack placement change"
 msgstr "機櫃位置變更"
 
-#: inc/alert.class.php:122
+#: inc/alert.class.php:130 templates/audit.html.twig:165 templates/config.html.twig:143
+msgid "Not answering"
+msgstr "無回應"
+
+#: inc/alert.class.php:131 templates/audit.html.twig:165 templates/config.html.twig:143
+msgid "Agent not answering"
+msgstr "Agent 無回應"
+
+#: inc/alert.class.php:132
+msgid "Unexpected reboot"
+msgstr "非預期重開機"
+
+#: inc/alert.class.php:133
+msgid "Antivirus problem"
+msgstr "防毒異常"
+
+#: inc/alert.class.php:134
+msgid "Outdated GLPI Agent"
+msgstr "GLPI Agent 版本過舊"
+
+#: inc/alert.class.php:135
+msgid "Disk filling up"
+msgstr "硬碟即將不足"
+
+#: inc/alert.class.php:145
 msgid "Active"
 msgstr "觸發中"
 
-#: inc/alert.class.php:123
+#: inc/alert.class.php:146
 msgid "Acknowledged"
 msgstr "已確認"
 
-#: inc/alert.class.php:124 inc/notificationtargetdigest.class.php:41
+#: inc/alert.class.php:147 inc/notificationtargetdigest.class.php:41
 msgid "Resolved"
 msgstr "已恢復"
 
-#: inc/alert.class.php:125 inc/notificationtargetalert.class.php:105
+#: inc/alert.class.php:148 inc/notificationtargetalert.class.php:105
 msgid "Event"
 msgstr "事件"
 
-#: inc/alert.class.php:149
+#: inc/alert.class.php:172
 msgid "Rack placement"
 msgstr "機櫃位置"
 
-#: inc/alert.class.php:157
+#: inc/alert.class.php:180
 msgid "Added"
 msgstr "新增"
 
-#: inc/alert.class.php:158
+#: inc/alert.class.php:181
 msgid "Removed"
 msgstr "移除"
 
-#: inc/alert.class.php:159
+#: inc/alert.class.php:182
 msgid "Increased"
 msgstr "增加"
 
-#: inc/alert.class.php:160
+#: inc/alert.class.php:183
 msgid "Decreased"
 msgstr "減少"
 
-#: inc/alert.class.php:161
+#: inc/alert.class.php:184
 msgid "Changed"
 msgstr "變更"
 
-#: inc/alert.class.php:162
+#: inc/alert.class.php:185
 msgid "Moved"
 msgstr "搬移"
 
-#: inc/alert.class.php:184
+#: inc/alert.class.php:207
 msgid "Last inventory: %s"
 msgstr "最後回報：%s"
 
-#: inc/alert.class.php:185
+#: inc/alert.class.php:208
 msgid "%1$d hours without inventory (threshold: %2$d hours)"
 msgstr "已 %1$d 小時沒回報（門檻 %2$d 小時）"
 
-#: inc/alert.class.php:190
+#: inc/alert.class.php:213
 msgid "[%1$s] %2$s GB free of %3$s GB (%4$s%%)"
 msgstr "[%1$s] 剩 %2$s GB / 共 %3$s GB（%4$s%%）"
 
-#: inc/alert.class.php:212
+#: inc/alert.class.php:235
 msgid "Changed by: %s"
 msgstr "變更者：%s"
 
-#: inc/alert.class.php:409 inc/notificationtargetalert.class.php:113 inc/notificationtargetdigest.class.php:93 templates/alert_form.html.twig:29 templates/item_alerts.html.twig:19
+#: inc/alert.class.php:241
+msgid "Nothing answers: neither the GLPI Agent nor the checked TCP ports."
+msgstr "完全沒有回應：GLPI Agent 和檢查的 TCP 埠都沒回應。"
+
+#: inc/alert.class.php:242
+msgid "The machine answers on TCP but its GLPI Agent does not (service stopped or port 62354 filtered)."
+msgstr "機器有回應 TCP，但 GLPI Agent 沒回應（服務停了，或 62354 埠被擋）。"
+
+#: inc/alert.class.php:243
+msgid "Failing since %1$s (%2$d checks in a row)"
+msgstr "從 %1$s 起無回應（連續 %2$d 次）"
+
+#: inc/alert.class.php:244 templates/audit.html.twig:166
+msgid "Last answer: %s"
+msgstr "最後回應：%s"
+
+#: inc/alert.class.php:245
+msgid "Checked: %s"
+msgstr "檢查項目：%s"
+
+#: inc/alert.class.php:249
+msgid "Booted at %1$s (previous boot: %2$s)"
+msgstr "開機時間 %1$s（前一次開機：%2$s）"
+
+#: inc/alert.class.php:253
+msgid "disabled"
+msgstr "已停用"
+
+#: inc/alert.class.php:254
+msgid "signatures not up to date"
+msgstr "病毒碼未更新"
+
+#: inc/alert.class.php:255
+msgid "license expired"
+msgstr "授權已過期"
+
+#: inc/alert.class.php:259
+msgid "Version %1$s, signatures %2$s"
+msgstr "版本 %1$s，病毒碼 %2$s"
+
+#: inc/alert.class.php:263
+msgid "GLPI Agent %1$s, minimum required: %2$s"
+msgstr "GLPI Agent %1$s，最低要求：%2$s"
+
+#: inc/alert.class.php:268
+msgid "[%1$s] low disk space in about %2$d days: %3$s GB free, losing %4$s GB a day (threshold %5$s GB)"
+msgstr "[%1$s] 約 %2$d 天後空間不足：剩 %3$s GB，每天少 %4$s GB（門檻 %5$s GB）"
+
+#: inc/alert.class.php:471 inc/notificationtargetalert.class.php:113 inc/notificationtargetdigest.class.php:93 templates/alert_form.html.twig:29 templates/item_alerts.html.twig:19
 msgid "Details"
 msgstr "內容"
 
-#: inc/alert.class.php:438 templates/alert_form.html.twig:55
+#: inc/alert.class.php:500 templates/alert_form.html.twig:55
 msgid "Acknowledged by"
 msgstr "確認者"
 
-#: inc/alert.class.php:448
+#: inc/alert.class.php:510
 msgid "Acknowledgement comment"
 msgstr "確認備註"
 
-#: inc/alert.class.php:457 templates/alert_form.html.twig:45
+#: inc/alert.class.php:519 templates/alert_form.html.twig:45
 msgid "Last notification"
 msgstr "最後通知時間"
 
-#: inc/alert.class.php:475 templates/alert_form.html.twig:62
+#: inc/alert.class.php:537 templates/alert_form.html.twig:62
 msgid "Silenced until"
 msgstr "暫停提醒至"
 
-#: inc/alert.class.php:484
+#: inc/alert.class.php:546
 msgid "Key"
 msgstr "識別鍵"
 
-#: inc/alert.class.php:652
+#: inc/alert.class.php:714
 msgid "Asset Watch: detect hardware and identity changes"
 msgstr "資產監看：偵測硬體與身分變動"
 
-#: inc/alert.class.php:654
+#: inc/alert.class.php:716
 msgid "Asset Watch: check missing inventories and disk space"
 msgstr "資產監看：檢查沒回報與硬碟空間"
 
-#: inc/alert.class.php:656
+#: inc/alert.class.php:718
 msgid "Asset Watch: purge old history"
 msgstr "資產監看：清除過期歷史"
 
-#: inc/alert.class.php:47
+#: inc/alert.class.php:720
+msgid "Asset Watch: check that machines and agents answer (liveness probe)"
+msgstr "資產監看：主動確認機器與 agent 有回應（存活偵測）"
+
+#: inc/alert.class.php:64
 msgid "Asset alert"
 msgid_plural "Asset alerts"
 msgstr[0] "資產告警"
 
-#: inc/audit.class.php:36 templates/config.html.twig:101 templates/roommap.html.twig:74
+#: inc/audit.class.php:36 templates/config.html.twig:195 templates/roommap.html.twig:74
 msgid "Datacenter inventory"
 msgstr "機房盤點"
 
-#: inc/audit.class.php:108 templates/_scope_select.html.twig:24 templates/audit.html.twig:108
+#: inc/audit.class.php:108 templates/_scope_select.html.twig:24 templates/audit.html.twig:120
 msgid "Computers in no rack and without location"
 msgstr "沒上機櫃也沒設位置的電腦"
 
@@ -169,135 +261,135 @@ msgstr "沒上機櫃也沒設位置的電腦"
 msgid "All server rooms"
 msgstr "所有機房"
 
-#: inc/audit.class.php:580 inc/dashboard.class.php:205
+#: inc/audit.class.php:584 inc/dashboard.class.php:205
 msgid "Healthy"
 msgstr "正常"
 
-#: inc/audit.class.php:582 inc/dashboard.class.php:206
+#: inc/audit.class.php:586 inc/dashboard.class.php:206
 msgid "Offline"
 msgstr "離線"
 
-#: inc/audit.class.php:583 inc/audit.class.php:600
+#: inc/audit.class.php:587 inc/audit.class.php:604
 msgid "Probably removed"
 msgstr "疑似已下架"
 
-#: inc/audit.class.php:584
+#: inc/audit.class.php:588
 msgid "No agent"
 msgstr "無 Agent"
 
-#: inc/audit.class.php:596
+#: inc/audit.class.php:600
 msgid "In a rack, never reported"
 msgstr "在機櫃上但從沒回報"
 
-#: inc/audit.class.php:597
+#: inc/audit.class.php:601
 msgid "Computer placed in a rack but GLPI Agent never sent its inventory: agent not installed, or the machine is not there."
 msgstr "電腦放在機櫃上，但 GLPI Agent 從未回報：沒裝 Agent，或機器其實不在那裡。"
 
-#: inc/audit.class.php:601
+#: inc/audit.class.php:605
 msgid "No inventory for %d days or more: check that it is still in the rack."
 msgstr "超過 %d 天沒有回報：請確認它還在機櫃上。"
 
-#: inc/audit.class.php:604 inc/audit.class.php:688 inc/audit.class.php:783
+#: inc/audit.class.php:608 inc/audit.class.php:722 inc/audit.class.php:819
 msgid "Not in a rack"
 msgstr "沒上機櫃"
 
-#: inc/audit.class.php:605
+#: inc/audit.class.php:609
 msgid "Reporting computer of this room (by location) that is placed in no rack."
 msgstr "依位置屬於這個機房、有在回報，但沒放進任何機櫃的電腦。"
 
-#: inc/audit.class.php:608
+#: inc/audit.class.php:612
 msgid "Duplicate serial number"
 msgstr "序號重複"
 
-#: inc/audit.class.php:609
+#: inc/audit.class.php:613
 msgid "Another asset of the same type has the same serial number (duplicate record?)."
 msgstr "另一筆同類型資產有相同序號（可能是重複的紀錄）。"
 
-#: inc/audit.class.php:612
+#: inc/audit.class.php:616
 msgid "No technical group"
 msgstr "沒有技術群組"
 
-#: inc/audit.class.php:613
+#: inc/audit.class.php:617
 msgid "Nobody receives the alerts of this computer."
 msgstr "這台電腦的告警沒有人會收到。"
 
-#: inc/audit.class.php:616
+#: inc/audit.class.php:620
 msgid "Address outside the room networks"
 msgstr "IP 不在機房網段內"
 
-#: inc/audit.class.php:617
+#: inc/audit.class.php:621
 msgid "None of its addresses is in the networks configured for the room (Setup > Plugins > Asset Watch)."
 msgstr "它的 IP 都不在這個機房設定的網段內（設定 > 外掛 > Asset Watch）。"
 
-#: inc/audit.class.php:740
+#: inc/audit.class.php:776
 msgid "No datacenter"
 msgstr "未指定資料中心"
 
-#: inc/audit.class.php:762
+#: inc/audit.class.php:798
 msgid "Front"
 msgstr "正面"
 
-#: inc/audit.class.php:762 templates/racklabel.html.twig:95
+#: inc/audit.class.php:798 templates/racklabel.html.twig:95
 msgid "Rear"
 msgstr "背面"
 
-#: inc/audit.class.php:767
+#: inc/audit.class.php:803
 msgid "Datacenter"
 msgstr "資料中心"
 
-#: inc/audit.class.php:767 inc/roomfilter.class.php:27 templates/_scope_select.html.twig:9
+#: inc/audit.class.php:803 inc/roomfilter.class.php:27 templates/_scope_select.html.twig:9
 msgid "Server room"
 msgstr "機房"
 
-#: inc/audit.class.php:767
+#: inc/audit.class.php:803
 msgid "Rack"
 msgstr "機櫃"
 
-#: inc/audit.class.php:767
+#: inc/audit.class.php:803
 msgid "Rack unit (U)"
 msgstr "U 位"
 
-#: inc/audit.class.php:767
+#: inc/audit.class.php:803
 msgid "Side"
 msgstr "面向"
 
-#: inc/audit.class.php:768 inc/topology.class.php:475
+#: inc/audit.class.php:804 inc/topology.class.php:475
 msgid "Asset type"
 msgstr "設備類型"
 
-#: inc/audit.class.php:768
+#: inc/audit.class.php:804
 msgid "Manufacturer"
 msgstr "製造商"
 
-#: inc/audit.class.php:768 templates/audit.html.twig:133
+#: inc/audit.class.php:804 templates/audit.html.twig:145
 msgid "Model"
 msgstr "型號"
 
-#: inc/audit.class.php:769 templates/audit.html.twig:134
+#: inc/audit.class.php:805 templates/audit.html.twig:146
 msgid "IP addresses"
 msgstr "IP 位址"
 
-#: inc/audit.class.php:769 templates/audit.html.twig:135
+#: inc/audit.class.php:805 templates/audit.html.twig:147
 msgid "Last inventory"
 msgstr "最後回報"
 
-#: inc/audit.class.php:770 templates/audit.html.twig:79
+#: inc/audit.class.php:806 templates/audit.html.twig:91
 msgid "Discrepancies"
 msgstr "落差"
 
-#: inc/audit.class.php:770 templates/audit.html.twig:136
+#: inc/audit.class.php:806 templates/audit.html.twig:148
 msgid "Technical groups"
 msgstr "技術群組"
 
-#: inc/audit.class.php:770 templates/audit.html.twig:137
+#: inc/audit.class.php:806 templates/audit.html.twig:149
 msgid "Hardware"
 msgstr "硬體"
 
-#: inc/audit.class.php:776 templates/audit.html.twig:89
+#: inc/audit.class.php:812 templates/audit.html.twig:101
 msgid "%d other asset(s) with this serial"
 msgstr "另有 %d 筆相同序號"
 
-#: inc/audit.class.php:565
+#: inc/audit.class.php:569
 msgid "%d drive"
 msgid_plural "%d drives"
 msgstr[0] "%d 顆硬碟"
@@ -306,23 +398,23 @@ msgstr[0] "%d 顆硬碟"
 msgid "Asset Watch configuration"
 msgstr "資產監看設定"
 
-#: inc/config.class.php:134
+#: inc/config.class.php:147
 msgid "E-mail notifications are disabled in GLPI (Setup > Notifications): no alert will be sent."
 msgstr "GLPI 的 E-mail 通知未啟用（設定 > 通知）：告警信不會寄出。"
 
-#: inc/config.class.php:140
+#: inc/config.class.php:157
 msgid "Automatic action %s is missing: reinstall the plugin."
 msgstr "找不到自動動作 %s：請重新安裝外掛。"
 
-#: inc/config.class.php:144
+#: inc/config.class.php:161
 msgid "Automatic action %s is disabled."
 msgstr "自動動作 %s 已停用。"
 
-#: inc/config.class.php:146
+#: inc/config.class.php:163
 msgid "Automatic action %s runs in GLPI mode: it only runs when someone browses GLPI. Switch it to CLI."
 msgstr "自動動作 %s 為 GLPI 模式：只有在有人瀏覽 GLPI 時才會執行，請改成 CLI。"
 
-#: inc/config.class.php:167
+#: inc/config.class.php:184
 msgid "%d monitored computer has no technical group: its alerts are recorded but nobody is notified."
 msgid_plural "%d monitored computers have no technical group: their alerts are recorded but nobody is notified."
 msgstr[0] "%d 台受監看的電腦沒有設定技術群組：告警會記錄，但不會通知任何人。"
@@ -452,6 +544,10 @@ msgstr "開始時間"
 msgid "List of alerts"
 msgstr "告警清單"
 
+#: inc/probe.class.php:38 templates/audit.html.twig:163
+msgid "Liveness probe"
+msgstr "存活偵測"
+
 #: inc/racklabel.class.php:263 templates/racklabel.html.twig:71
 msgid "In no server room"
 msgstr "未指定機房"
@@ -460,7 +556,7 @@ msgstr "未指定機房"
 msgid "Rack QR stickers"
 msgstr "機櫃 QR 貼紙"
 
-#: inc/racklabel.class.php:37 templates/audit.html.twig:121
+#: inc/racklabel.class.php:37 templates/audit.html.twig:133
 msgid "Rack label"
 msgid_plural "Rack labels"
 msgstr[0] "機櫃標籤"
@@ -478,7 +574,7 @@ msgid "Baseline"
 msgid_plural "Baselines"
 msgstr[0] "比對基準"
 
-#: inc/topology.class.php:28 templates/audit.html.twig:26
+#: inc/topology.class.php:28 templates/audit.html.twig:27
 msgid "Network topology"
 msgstr "網路架構圖"
 
@@ -494,7 +590,7 @@ msgstr "不在目前範圍內"
 msgid "Network device"
 msgstr "網路設備"
 
-#: inc/topology.class.php:474 inc/topology.class.php:475 templates/audit.html.twig:79 templates/topology.html.twig:113 templates/topology.html.twig:246 templates/topology.html.twig:276
+#: inc/topology.class.php:474 inc/topology.class.php:475 templates/audit.html.twig:91 templates/topology.html.twig:113 templates/topology.html.twig:246 templates/topology.html.twig:276
 msgid "Location"
 msgstr "位置"
 
@@ -567,61 +663,73 @@ msgstr "暫停提醒至（空白 = 直到恢復）"
 msgid "Resume reminders"
 msgstr "恢復提醒"
 
-#: templates/audit.html.twig:27 templates/topology.html.twig:56
+#: templates/audit.html.twig:28 templates/topology.html.twig:56
 msgid "Export CSV"
 msgstr "匯出 CSV"
 
-#: templates/audit.html.twig:28 templates/racklabel.html.twig:56 templates/racksticker.html.twig:36 templates/topology.html.twig:57
+#: templates/audit.html.twig:29 templates/racklabel.html.twig:56 templates/racksticker.html.twig:36 templates/topology.html.twig:57
 msgid "Print"
 msgstr "列印"
 
-#: templates/audit.html.twig:35 templates/topology.html.twig:64
+#: templates/audit.html.twig:36
+msgid "Ask every GLPI Agent of this selection to send its inventory now (the agents must trust the GLPI host: option httpd-trust)."
+msgstr "要求這個範圍的每台 GLPI Agent 立即回報（agent 的 httpd-trust 設定要包含 GLPI 主機）。"
+
+#: templates/audit.html.twig:37
+msgid "Report now"
+msgstr "立即回報"
+
+#: templates/audit.html.twig:47 templates/topology.html.twig:64
 msgid "No server room yet. Create datacenters and server rooms in Assets > Datacenters, assign the racks to a room and set a location on the room."
 msgstr "還沒有機房。請到「資產 > 資料中心」建立資料中心與機房，把機櫃指定到機房，並設定機房的位置。"
 
-#: templates/audit.html.twig:40
+#: templates/audit.html.twig:52
 msgid "Pick a server room to list its assets rack by rack, with their status and what to check on site."
 msgstr "選一個機房，依機櫃列出所有設備、目前狀態，以及到現場要確認的項目。"
 
-#: templates/audit.html.twig:46
+#: templates/audit.html.twig:58
 msgid "Only the rack %s (what GLPI records for it, with the live status)."
 msgstr "只顯示機櫃 %s（GLPI 記錄的內容與即時狀態）。"
 
-#: templates/audit.html.twig:47
+#: templates/audit.html.twig:59
 msgid "Whole server room"
 msgstr "顯示整個機房"
 
-#: templates/audit.html.twig:53
+#: templates/audit.html.twig:65
 msgid "Assets"
 msgstr "設備"
 
-#: templates/audit.html.twig:63 templates/roommap.html.twig:42 templates/roommap.html.twig:61 templates/roommap.html.twig:65
+#: templates/audit.html.twig:75 templates/roommap.html.twig:42 templates/roommap.html.twig:61 templates/roommap.html.twig:65
 msgid "To check on site"
 msgstr "到現場要確認"
 
-#: templates/audit.html.twig:74
+#: templates/audit.html.twig:86
 msgid "Nothing to check: GLPI matches what the agents report."
 msgstr "沒有需要確認的：GLPI 的資料和 Agent 回報一致。"
 
-#: templates/audit.html.twig:97
+#: templates/audit.html.twig:109
 msgid "\"Probably removed\" = no inventory for %d days or more."
 msgstr "「疑似已下架」＝超過 %d 天沒有回報。"
 
-#: templates/audit.html.twig:98
+#: templates/audit.html.twig:110
 msgid "Thresholds and room networks"
 msgstr "門檻與機房網段設定"
 
-#: templates/audit.html.twig:105
+#: templates/audit.html.twig:117
 msgid "No asset recorded in this rack."
 msgstr "這個機櫃在 GLPI 沒有記錄任何設備。"
 
-#: templates/audit.html.twig:105
+#: templates/audit.html.twig:117
 msgid "No asset found: no rack of this room holds an asset, and no reporting computer has the location of the room."
 msgstr "找不到設備：這個機房的機櫃上沒有設備，也沒有回報中的電腦位置設在這個機房。"
 
-#: templates/audit.html.twig:122
+#: templates/audit.html.twig:134
 msgid "QR sticker"
 msgstr "QR 貼紙"
+
+#: templates/audit.html.twig:165
+msgid "Answers"
+msgstr "有回應"
 
 #: templates/config.html.twig:11
 msgid "Health check"
@@ -688,50 +796,142 @@ msgid "Ignored mount points (comma separated, * wildcard)"
 msgstr "忽略的掛載點（以逗號分隔，可用 * 萬用字元）"
 
 #: templates/config.html.twig:93
+msgid "Liveness probe (between inventories)"
+msgstr "存活偵測（兩次回報之間）"
+
+#: templates/config.html.twig:96
+msgid "Every 5 minutes, ask each GLPI Agent whether it is there (the \"status\" request of the agent page in GLPI); when it does not answer, or for an asset in a rack without agent (switch, PDU...), try a TCP connection to the ports below. A machine that stops answering is reported within minutes instead of after the missing-inventory threshold."
+msgstr "每 5 分鐘問一次每台 GLPI Agent 是否還在（就是 GLPI agent 頁面上查狀態的那個請求）；agent 沒回應，或機櫃上沒有 agent 的設備（switch、PDU…），改試著連下列 TCP 埠。機器停止回應幾分鐘內就會通知，不用等到「沒回報」門檻。"
+
+#: templates/config.html.twig:99
+msgid "Needs: agents running as a service (default of the installers), and the GLPI host allowed to reach the machines on TCP 62354 (and the ports below). Test first with the button: nothing is saved and no e-mail is sent."
+msgstr "需要：agent 以服務方式常駐（安裝包預設），且防火牆允許 GLPI 主機連到各機器的 TCP 62354（以及下列埠）。請先按按鈕測試：不會存任何東西，也不會寄信。"
+
+#: templates/config.html.twig:103
+msgid "Enable the liveness probe (alerts \"Not answering\" and \"Agent not answering\")"
+msgstr "啟用存活偵測（告警「無回應」與「Agent 無回應」）"
+
+#: templates/config.html.twig:107
+msgid "Also probe the assets placed in a rack that have no agent (by TCP, on their IP addresses)"
+msgstr "也偵測機櫃上沒有 agent 的設備（用 TCP 連它們的 IP）"
+
+#: templates/config.html.twig:111
+msgid "Alert after N failed checks in a row"
+msgstr "連續幾次無回應才告警"
+
+#: templates/config.html.twig:115
+msgid "Timeout (seconds)"
+msgstr "逾時（秒）"
+
+#: templates/config.html.twig:119
+msgid "TCP ports tried"
+msgstr "嘗試的 TCP 埠"
+
+#: templates/config.html.twig:125
+msgid "Last run %1$s: %2$d answer, %3$d agent not answering, %4$d not answering."
+msgstr "最近一次 %1$s：%2$d 台有回應、%3$d 台 Agent 無回應、%4$d 台無回應。"
+
+#: templates/config.html.twig:127
+msgid "Not run yet."
+msgstr "還沒執行過。"
+
+#: templates/config.html.twig:129
+msgid "If most machines fail in one run, the probe assumes a network problem on the GLPI side and leaves the alerts as they are."
+msgstr "如果一次大部分機器都沒回應，會判斷是 GLPI 主機端的網路問題，告警維持原狀，不會一口氣開一堆。"
+
+#: templates/config.html.twig:132
+msgid "Probe once now (test, no e-mail)"
+msgstr "立即偵測一次（測試，不寄信）"
+
+#: templates/config.html.twig:136
+msgid "Test result"
+msgstr "測試結果"
+
+#: templates/config.html.twig:137
+msgid "%1$d target(s) in %2$s s: %3$d answer, %4$d agent not answering, %5$d not answering."
+msgstr "%1$d 台，花 %2$s 秒：%3$d 台有回應、%4$d 台 Agent 無回應、%5$d 台無回應。"
+
+#: templates/config.html.twig:138
+msgid "Most targets failed: check that the GLPI host can reach the machines (firewall, routing) before enabling the probe."
+msgstr "大部分都沒回應：啟用前請先確認 GLPI 主機連得到這些機器（防火牆、路由）。"
+
+#: templates/config.html.twig:154
+msgid "Checks on inventory data"
+msgstr "回報資料的檢查"
+
+#: templates/config.html.twig:158
+msgid "Unexpected reboot (boot time reported by the agent changed)"
+msgstr "非預期重開機（agent 回報的開機時間變了）"
+
+#: templates/config.html.twig:161
+msgid "Not reported when the boot time is in these daily windows (e.g. 02:00-06:00, comma separated)"
+msgstr "開機時間落在這些每日時段就不通知（例如 02:00-06:00，多個用逗號分隔）"
+
+#: templates/config.html.twig:166
+msgid "Antivirus disabled, not up to date or license expired (as reported by the agent)"
+msgstr "防毒停用、病毒碼未更新或授權過期（依 agent 回報）"
+
+#: templates/config.html.twig:170
+msgid "Disk filling up: free space trend of the last 30 days reaches the low-space threshold within"
+msgstr "硬碟即將不足：依最近 30 天的剩餘空間趨勢，預計在以下天數內低於門檻"
+
+#: templates/config.html.twig:173 templates/config.html.twig:174
+msgid "days"
+msgstr "天"
+
+#: templates/config.html.twig:176
+msgid "Minimum GLPI Agent version (empty = not checked)"
+msgstr "GLPI Agent 最低版本（空白＝不檢查）"
+
+#: templates/config.html.twig:179
+msgid "In use:"
+msgstr "目前使用中："
+
+#: templates/config.html.twig:187
 msgid "Network identity"
 msgstr "網路身分"
 
-#: templates/config.html.twig:95
+#: templates/config.html.twig:189
 msgid "Ignored network interfaces (virtual / container), * wildcard"
 msgstr "忽略的網路介面（虛擬／容器），可用 * 萬用字元"
 
-#: templates/config.html.twig:103
+#: templates/config.html.twig:197
 msgid "Used by the inventory page (Tools > Datacenter inventory) and its dashboard card; no e-mail is sent."
 msgstr "用於盤點頁（工具 > 機房盤點）和儀表板卡片，不會寄信。"
 
-#: templates/config.html.twig:103
+#: templates/config.html.twig:197
 msgid "Open the inventory page"
 msgstr "開啟盤點頁"
 
-#: templates/config.html.twig:105
+#: templates/config.html.twig:199
 msgid "\"Probably removed\" after (days without inventory)"
 msgstr "超過幾天沒回報算「疑似已下架」"
 
-#: templates/config.html.twig:108
+#: templates/config.html.twig:202
 msgid "Networks of each server room (one per line, e.g. 10.1.0.0/16; empty = not checked)"
 msgstr "各機房的網段（一行一個，例如 10.1.0.0/16；空白＝不比對）"
 
-#: templates/config.html.twig:110
+#: templates/config.html.twig:204
 msgid "No server room yet (Assets > Datacenters)."
 msgstr "還沒有機房（資產 > 資料中心）。"
 
-#: templates/config.html.twig:119
+#: templates/config.html.twig:213
 msgid "Ignored (not a network): %s"
 msgstr "已忽略（不是網段）：%s"
 
-#: templates/config.html.twig:130
+#: templates/config.html.twig:224
 msgid "Notifications and history"
 msgstr "通知與歷史"
 
-#: templates/config.html.twig:134
+#: templates/config.html.twig:228
 msgid "Reminder every (days, 0 = never)"
 msgstr "提醒間隔（天，0 = 不提醒）"
 
-#: templates/config.html.twig:138
+#: templates/config.html.twig:232
 msgid "Keep history (days)"
 msgstr "歷史保留天數"
 
-#: templates/config.html.twig:143
+#: templates/config.html.twig:237
 msgid "Recipients and e-mail contents are managed in Setup > Notifications (notifications named \"Asset Watch - ...\")."
 msgstr "收件人與信件內容請到「設定 > 通知」調整（名稱為「Asset Watch - ...」的通知）。"
 

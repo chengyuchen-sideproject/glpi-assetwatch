@@ -37,6 +37,19 @@ final class Settings
         'retire_days'            => '30',
         // JSON object: {"<dcrooms_id>": "10.1.0.0/16,10.2.5.0/24"}
         'room_subnets'           => '{}',
+        // 2.5 liveness probe: off by default (needs GLPI -> agents TCP 62354 open)
+        'check_probe'            => '0',
+        'probe_fail_count'       => '2',
+        'probe_timeout'          => '3',
+        'probe_tcp_ports'        => '22,3389,443,80',
+        'probe_devices'          => '1',
+        // 2.5 rules on inventory data
+        'check_reboot'           => '1',
+        'reboot_quiet_hours'     => '',
+        'check_antivirus'        => '1',
+        'agent_min_version'      => '',
+        'check_disk_forecast'    => '1',
+        'disk_forecast_days'     => '14',
     ];
 
     public bool $checkNoReport;
@@ -60,6 +73,18 @@ final class Settings
     public int $retireDays;
     /** @var array<int, string> dcrooms_id => network list as typed (comma separated) */
     public array $roomSubnets;
+    public bool $checkProbe;
+    public int $probeFailCount;
+    public int $probeTimeout;
+    /** @var int[] */
+    public array $probeTcpPorts;
+    public bool $probeDevices;
+    public bool $checkReboot;
+    public string $rebootQuietHours;
+    public bool $checkAntivirus;
+    public string $agentMinVersion;
+    public bool $checkDiskForecast;
+    public int $diskForecastDays;
 
     /**
      * @param array<string, mixed> $values
@@ -84,6 +109,20 @@ final class Settings
         $s->retentionDays        = self::toInt($v['retention_days'], 1, 3650, 180);
         $s->retireDays           = self::toInt($v['retire_days'], 1, 3650, 30);
         $s->roomSubnets          = self::parseRoomSubnets((string) $v['room_subnets']);
+        $s->checkProbe           = self::toBool($v['check_probe']);
+        $s->probeFailCount       = self::toInt($v['probe_fail_count'], 1, 20, 2);
+        $s->probeTimeout         = self::toInt($v['probe_timeout'], 1, 15, 3);
+        $s->probeTcpPorts        = self::parsePorts((string) $v['probe_tcp_ports']);
+        $s->probeDevices         = self::toBool($v['probe_devices']);
+        $s->checkReboot          = self::toBool($v['check_reboot']);
+        $s->rebootQuietHours     = implode(', ', array_map(
+            static fn (array $w): string => sprintf('%02d:%02d-%02d:%02d', intdiv($w[0], 60), $w[0] % 60, intdiv($w[1], 60), $w[1] % 60),
+            HealthRules::parseQuietHours((string) $v['reboot_quiet_hours'])
+        ));
+        $s->checkAntivirus       = self::toBool($v['check_antivirus']);
+        $s->agentMinVersion      = HealthRules::normalizeVersion((string) $v['agent_min_version']);
+        $s->checkDiskForecast    = self::toBool($v['check_disk_forecast']);
+        $s->diskForecastDays     = self::toInt($v['disk_forecast_days'], 1, 365, 14);
         return $s;
     }
 
@@ -107,6 +146,22 @@ final class Settings
         return array_values(array_filter($parts, static function (string $p): bool {
             return $p !== '';
         }));
+    }
+
+    /**
+     * "22, 3389;443" -> [22, 3389, 443] (1-65535, duplicates removed, at most 10).
+     *
+     * @return int[]
+     */
+    public static function parsePorts(string $raw): array
+    {
+        $ports = [];
+        foreach (self::splitList(str_replace([';', ' '], ',', $raw)) as $part) {
+            if (ctype_digit($part) && (int) $part >= 1 && (int) $part <= 65535 && !in_array((int) $part, $ports, true)) {
+                $ports[] = (int) $part;
+            }
+        }
+        return array_slice($ports, 0, 10);
     }
 
     /**

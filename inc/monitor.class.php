@@ -10,6 +10,7 @@ use Glpi\DBAL\QuerySubQuery;
 use GlpiPlugin\Assetwatch\Core\AlertText;
 use GlpiPlugin\Assetwatch\Core\DigestBuilder;
 use GlpiPlugin\Assetwatch\Core\DiskRule;
+use GlpiPlugin\Assetwatch\Core\HealthRules;
 use GlpiPlugin\Assetwatch\Core\NoReportRule;
 use GlpiPlugin\Assetwatch\Core\Settings;
 use GlpiPlugin\Assetwatch\Core\Snapshot;
@@ -36,11 +37,21 @@ class PluginAssetwatchMonitor
         $settings = PluginAssetwatchConfig::getSettings();
         $now = self::now();
         $processed = 0;
+        $entries = [];
 
-        foreach (PluginAssetwatchRepository::computersWithNewInventory() as $id => $computer) {
+        $computers = PluginAssetwatchRepository::computersWithNewInventory();
+        $disks = $computers === [] ? [] : PluginAssetwatchRepository::disksByComputer(array_keys($computers));
+        foreach ($computers as $id => $computer) {
             $rows = PluginAssetwatchRepository::snapshotRows($id);
             $new = Snapshot::build($computer, $rows['memories'], $rows['processors'], $rows['drives'], $rows['ports'], $rows['ips'], $settings);
             $old = PluginAssetwatchSnapshot::decode($computer['snapshot_content']);
+            // 2.5: boot time kept in the baseline (an inventory without it keeps the previous one).
+            $new['last_boot'] = !empty($computer['last_boot']) ? (string) $computer['last_boot'] : ($old['last_boot'] ?? null);
+
+            // 2.5: free space at each inventory, for the disk trend.
+            if (!empty($computer['last_inventory_update'])) {
+                PluginAssetwatchRepository::recordDiskSamples($id, DiskRule::measureAll($disks[$id] ?? [], $settings), (string) $computer['last_inventory_update']);
+            }
 
             if ($old !== null) {
                 $diff = SnapshotDiff::compare($old, $new, $settings->checkHardware, $settings->checkIdentity);
@@ -54,11 +65,20 @@ class PluginAssetwatchMonitor
                 if ($diff['identity'] !== []) {
                     self::raiseEventAlert('Computer', $computer, PluginAssetwatchAlert::TYPE_IDENTITY, $base + ['changes' => $diff['identity']], $now);
                 }
+                // 2.5: unexpected reboot -> one-shot alert in the digest of the group (sent below).
+                $reboot = $settings->checkReboot
+                    ? HealthRules::reboot($old['last_boot'] ?? null, $new['last_boot'], $settings->rebootQuietHours, new DateTimeZone(date_default_timezone_get()))
+                    : null;
+                if ($reboot !== null) {
+                    $alert_id = PluginAssetwatchAlert::createAlert('Computer', $computer, PluginAssetwatchAlert::TYPE_REBOOT, '', PluginAssetwatchAlert::STATUS_EVENT, $reboot, $now);
+                    $entries[] = self::entry(DigestBuilder::KIND_NEW, $alert_id, $computer, PluginAssetwatchAlert::TYPE_REBOOT, '', $reboot, $now);
+                }
             }
             // First sighting only records the baseline: no alert on install.
             PluginAssetwatchSnapshot::save($id, (string) $computer['last_inventory_update'], Snapshot::mergeForStorage($old, $new), $now);
             $processed++;
         }
+        self::sendDigests($entries, $now);
         return $processed;
     }
 
@@ -81,6 +101,15 @@ class PluginAssetwatchMonitor
         if ($settings->checkDisk) {
             $types[] = PluginAssetwatchAlert::TYPE_DISK_LOW;
         }
+        if ($settings->checkAntivirus) {
+            $types[] = PluginAssetwatchAlert::TYPE_ANTIVIRUS;
+        }
+        if ($settings->agentMinVersion !== '') {
+            $types[] = PluginAssetwatchAlert::TYPE_AGENT_OUTDATED;
+        }
+        if ($settings->checkDiskForecast) {
+            $types[] = PluginAssetwatchAlert::TYPE_DISK_FORECAST;
+        }
         if ($types === []) {
             return 0;
         }
@@ -97,11 +126,46 @@ class PluginAssetwatchMonitor
                 }
             }
         }
-        if ($settings->checkDisk && $computers !== []) {
+        if (($settings->checkDisk || $settings->checkDiskForecast) && $computers !== []) {
+            $samples = $settings->checkDiskForecast
+                ? PluginAssetwatchRepository::diskSamples(array_keys($computers), $nowDate->modify('-' . HealthRules::FORECAST_WINDOW_DAYS . ' days')->format('Y-m-d H:i:s'))
+                : [];
             foreach (PluginAssetwatchRepository::disksByComputer(array_keys($computers)) as $id => $disks) {
                 $diskNow[$id] = DiskRule::measureAll($disks, $settings);
-                foreach (DiskRule::evaluate($disks, $settings) as $mount => $finding) {
-                    $findings[] = self::finding($id, PluginAssetwatchAlert::TYPE_DISK_LOW, (string) $mount, $finding);
+                $low = DiskRule::evaluate($disks, $settings);
+                if ($settings->checkDisk) {
+                    foreach ($low as $mount => $finding) {
+                        $findings[] = self::finding($id, PluginAssetwatchAlert::TYPE_DISK_LOW, (string) $mount, $finding);
+                    }
+                }
+                if ($settings->checkDiskForecast) {
+                    foreach ($diskNow[$id] as $mount => $m) {
+                        if (isset($low[$mount])) {
+                            continue;   // already low: the disk_low alert says it
+                        }
+                        $threshold = HealthRules::lowThresholdGb((float) $m['total_gb'], $settings->diskMinFreePercent, $settings->diskMinFreeGb);
+                        $forecast = HealthRules::diskForecast($samples[$id][$mount] ?? [], $threshold, $nowDate, $settings->diskForecastDays);
+                        if ($forecast !== null) {
+                            $findings[] = self::finding($id, PluginAssetwatchAlert::TYPE_DISK_FORECAST, (string) $mount, ['mountpoint' => (string) $mount] + $forecast);
+                        }
+                    }
+                }
+            }
+        }
+        if ($settings->checkAntivirus && $computers !== []) {
+            foreach (PluginAssetwatchRepository::antivirusesByComputer(array_keys($computers)) as $id => $antiviruses) {
+                foreach (HealthRules::antivirus($antiviruses, $nowDate) as $name => $finding) {
+                    $findings[] = self::finding($id, PluginAssetwatchAlert::TYPE_ANTIVIRUS, (string) $name, $finding);
+                }
+            }
+        }
+        if ($settings->agentMinVersion !== '' && $computers !== []) {
+            foreach (PluginAssetwatchRepository::agentsByComputer(array_keys($computers)) as $id => $agent) {
+                if (HealthRules::isAgentOutdated($agent['version'], $settings->agentMinVersion)) {
+                    $findings[] = self::finding($id, PluginAssetwatchAlert::TYPE_AGENT_OUTDATED, '', [
+                        'version' => HealthRules::normalizeVersion($agent['version']),
+                        'minimum' => $settings->agentMinVersion,
+                    ]);
                 }
             }
         }
@@ -159,14 +223,90 @@ class PluginAssetwatchMonitor
             }
         }
 
-        // One digest per (entity, technical group); a machine with several groups is in each of them.
+        self::sendDigests($entries, $now);
+        return count($entries);
+    }
+
+    /**
+     * One digest per (entity, technical group); a machine with several groups is in each of them.
+     *
+     * @param array<int, array<string, mixed>> $entries
+     */
+    public static function sendDigests(array $entries, string $now): void
+    {
         foreach (DigestBuilder::build(DigestBuilder::expandByGroups($entries)) as $digest) {
             $stored = PluginAssetwatchDigest::store($digest, $now);
             if ($stored !== null) {
                 NotificationEvent::raiseEvent('digest', $stored);
             }
         }
+    }
 
+    /**
+     * Generic version of the open / remind / resolve cycle for assets of any type (liveness probe).
+     *
+     * @param array<int, array<string, mixed>> $findings itemtype, items_id, alert_type, alert_key, content
+     * @param string[]                         $types    alert types owned by the caller
+     * @param array<string, array<string, mixed>> $items "itemtype#id" => asset (id, name, entities_id,
+     *        groups_id_tech, tech_groups); alerts of assets missing here resolve silently
+     * @param callable(array<string, mixed>): array<string, mixed> $resolved_content content shown in a resolved notice
+     *
+     * @return int number of digest entries
+     */
+    public static function reconcileItems(array $findings, array $types, array $items, string $now, Settings $settings, callable $resolved_content): int
+    {
+        $plan = StatusTracker::reconcile(
+            PluginAssetwatchAlert::getOpenConditionAlerts(),
+            $findings,
+            $types,
+            new DateTimeImmutable($now),
+            $settings->reminderDays
+        );
+        $item = static fn (array $row): ?array => $items[$row['itemtype'] . '#' . (int) $row['items_id']] ?? null;
+
+        $entries = [];
+        foreach ($plan['open'] as $finding) {
+            $asset = $item($finding);
+            if ($asset === null) {
+                continue;
+            }
+            $alert_id = PluginAssetwatchAlert::createAlert($finding['itemtype'], $asset, $finding['alert_type'], $finding['alert_key'], PluginAssetwatchAlert::STATUS_ACTIVE, $finding['content'], $now);
+            $entries[] = self::entry(DigestBuilder::KIND_NEW, $alert_id, $asset, $finding['alert_type'], $finding['alert_key'], $finding['content'], $now, $finding['itemtype']);
+        }
+        foreach ($plan['remind'] as $pair) {
+            $asset = $item($pair['finding']);
+            if ($asset === null) {
+                continue;
+            }
+            PluginAssetwatchAlert::updateAlert((int) $pair['alert']['id'], self::refreshValues($asset, $pair['finding']) + [
+                'status'             => PluginAssetwatchAlert::STATUS_ACTIVE,
+                'date_ack_until'     => null,
+                'date_last_notified' => $now,
+                'date_mod'           => $now,
+            ]);
+            $entries[] = self::entry(DigestBuilder::KIND_REMINDER, (int) $pair['alert']['id'], $asset, $pair['finding']['alert_type'], $pair['finding']['alert_key'], $pair['finding']['content'], (string) $pair['alert']['date_creation'], $pair['finding']['itemtype']);
+        }
+        foreach ($plan['refresh'] as $pair) {
+            $asset = $item($pair['finding']);
+            if ($asset !== null) {
+                $values = self::refreshValues($asset, $pair['finding']);
+                if ($values['summary'] !== (string) $pair['alert']['summary'] || (int) $values['groups_id_tech'] !== (int) $pair['alert']['groups_id_tech']) {
+                    PluginAssetwatchAlert::updateAlert((int) $pair['alert']['id'], $values + ['date_mod' => $now]);
+                }
+            }
+        }
+        foreach ($plan['resolve'] as $alert) {
+            PluginAssetwatchAlert::updateAlert((int) $alert['id'], [
+                'status'        => PluginAssetwatchAlert::STATUS_RESOLVED,
+                'date_resolved' => $now,
+                'date_mod'      => $now,
+            ]);
+            $asset = $item($alert);
+            if ($asset !== null) {
+                $entries[] = self::entry(DigestBuilder::KIND_RESOLVED, (int) $alert['id'], $asset, (string) $alert['alert_type'], (string) $alert['alert_key'], $resolved_content($alert), (string) $alert['date_creation'], (string) $alert['itemtype']);
+            }
+        }
+        self::sendDigests($entries, $now);
         return count($entries);
     }
 
@@ -194,6 +334,15 @@ class PluginAssetwatchMonitor
 
         $DB->delete(PluginAssetwatchSnapshot::getTable(), [
             'NOT' => ['computers_id' => new QuerySubQuery(['SELECT' => 'id', 'FROM' => 'glpi_computers'])],
+        ]);
+        $removed += $DB->affectedRows();
+
+        // 2.5: disk trend samples (60 days kept; the forecast uses 30).
+        $DB->delete(PluginAssetwatchInstall::DISK_HISTORY_TABLE, [
+            'OR' => [
+                'date' => ['<', date('Y-m-d H:i:s', strtotime(self::now()) - 60 * DAY_TIMESTAMP)],
+                'NOT'  => ['computers_id' => new QuerySubQuery(['SELECT' => 'id', 'FROM' => 'glpi_computers'])],
+            ],
         ]);
         $removed += $DB->affectedRows();
 
@@ -288,7 +437,7 @@ class PluginAssetwatchMonitor
      *
      * @return array<string, mixed>
      */
-    private static function entry(string $kind, int $alert_id, array $computer, string $type, string $key, array $content, string $since): array
+    private static function entry(string $kind, int $alert_id, array $computer, string $type, string $key, array $content, string $since, string $itemtype = 'Computer'): array
     {
         return [
             'kind'           => $kind,
@@ -296,7 +445,7 @@ class PluginAssetwatchMonitor
             'entities_id'    => (int) $computer['entities_id'],
             'groups_id_tech' => (int) $computer['groups_id_tech'],
             'tech_groups'    => (array) ($computer['tech_groups'] ?? []),
-            'itemtype'       => 'Computer',
+            'itemtype'       => $itemtype,
             'items_id'       => (int) $computer['id'],
             'item_name'      => (string) $computer['name'],
             'alert_type'     => $type,

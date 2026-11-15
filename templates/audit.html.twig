@@ -27,11 +27,22 @@
             <a class="btn btn-outline-secondary" href="{{ topology_url }}?scope={{ scope_key|url_encode }}"><i class="ti ti-topology-star-3 me-1"></i>{{ __('Network topology', 'assetwatch') }}</a>
             <a class="btn btn-outline-secondary" href="{{ self_url }}?scope={{ scope_key|url_encode }}{{ only_rack ? '&rack=' ~ only_rack.id : '' }}&amp;export=csv"><i class="ti ti-file-spreadsheet me-1"></i>{{ __('Export CSV', 'assetwatch') }}</a>
             <button type="button" class="btn btn-outline-secondary" onclick="window.print()"><i class="ti ti-printer me-1"></i>{{ __('Print', 'assetwatch') }}</button>
+            {% if can_request %}
+               <form method="post" action="{{ self_url }}" class="d-inline">
+                  <input type="hidden" name="_glpi_csrf_token" value="{{ csrf_token() }}">
+                  <input type="hidden" name="scope" value="{{ scope_key }}">
+                  {% if only_rack %}<input type="hidden" name="rack" value="{{ only_rack.id }}">{% endif %}
+                  <button type="submit" name="request_inventory" value="1" class="btn btn-outline-primary"
+                          title="{{ __('Ask every GLPI Agent of this selection to send its inventory now (the agents must trust the GLPI host: option httpd-trust).', 'assetwatch') }}">
+                     <i class="ti ti-refresh me-1"></i>{{ __('Report now', 'assetwatch') }}
+                  </button>
+               </form>
+            {% endif %}
          </div>
       {% endif %}
    </div>
 
-   {% if datacenters is empty %}
+   {% if datacenters is empty and result is null %}
       <div class="alert alert-info">
          {{ __('No server room yet. Create datacenters and server rooms in Assets > Datacenters, assign the racks to a room and set a location on the room.', 'assetwatch') }}
          <a href="{{ datacenter_url }}">{{ datacenter_label }}</a>
@@ -147,7 +158,15 @@
                            <div class="small text-muted">{{ item.type_label }}</div>
                            {% for issue, detail in item.issues %}<span class="badge bg-orange-lt me-1" title="{{ issue_labels[issue].help }}">{{ issue_labels[issue].label }}</span>{% endfor %}
                         </td>
-                        <td class="text-nowrap"><span class="badge bg-{{ st.color }}{{ st.color in ['success', 'danger', 'warning', 'secondary'] ? '-lt' : '' }}">{{ st.label }}</span></td>
+                        <td class="text-nowrap"><span class="badge bg-{{ st.color }}{{ st.color in ['success', 'danger', 'warning', 'secondary'] ? '-lt' : '' }}">{{ st.label }}</span>
+                           {% if item.probe %}
+                              <div class="small {{ item.probe_down ? 'text-danger' : 'text-muted' }}" title="{{ __('Liveness probe', 'assetwatch') }}">
+                                 <i class="ti ti-heartbeat"></i>
+                                 {{ item.probe.state == 'ok' ? __('Answers', 'assetwatch') : (item.probe.state == 'agent_down' ? __('Agent not answering', 'assetwatch') : __('Not answering', 'assetwatch')) }}
+                                 {% if item.probe.state != 'ok' and item.probe.date_last_ok %}<br>{{ __('Last answer: %s', 'assetwatch')|format(item.probe.date_last_ok|slice(5, 11)) }}{% endif %}
+                              </div>
+                           {% endif %}
+                        </td>
                         <td class="text-nowrap">{{ item.serial }}</td>
                         <td>{{ item.manufacturer }} {{ item.model }}</td>
                         <td class="aw-ips">{{ item.ips|join(' ') }}</td>

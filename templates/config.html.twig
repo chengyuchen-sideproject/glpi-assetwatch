@@ -89,6 +89,102 @@
          </div>
       </div>
 
+      <div class="card mb-3" id="probe">
+         <div class="card-header"><h3 class="card-title">{{ __('Liveness probe (between inventories)', 'assetwatch') }}</h3></div>
+         <div class="card-body">
+            <p class="text-muted">
+               {{ __('Every 5 minutes, ask each GLPI Agent whether it is there (the "status" request of the agent page in GLPI); when it does not answer, or for an asset in a rack without agent (switch, PDU...), try a TCP connection to the ports below. A machine that stops answering is reported within minutes instead of after the missing-inventory threshold.', 'assetwatch') }}
+            </p>
+            <p class="text-muted">
+               {{ __('Needs: agents running as a service (default of the installers), and the GLPI host allowed to reach the machines on TCP 62354 (and the ports below). Test first with the button: nothing is saved and no e-mail is sent.', 'assetwatch') }}
+            </p>
+            <label class="form-check">
+               <input class="form-check-input" type="checkbox" name="check_probe" value="1" {{ settings.checkProbe ? 'checked' : '' }}>
+               <span class="form-check-label">{{ __('Enable the liveness probe (alerts "Not answering" and "Agent not answering")', 'assetwatch') }}</span>
+            </label>
+            <label class="form-check">
+               <input class="form-check-input" type="checkbox" name="probe_devices" value="1" {{ settings.probeDevices ? 'checked' : '' }}>
+               <span class="form-check-label">{{ __('Also probe the assets placed in a rack that have no agent (by TCP, on their IP addresses)', 'assetwatch') }}</span>
+            </label>
+            <div class="row mt-2">
+               <div class="col-sm-4">
+                  <label class="form-label" for="probe_fail_count">{{ __('Alert after N failed checks in a row', 'assetwatch') }}</label>
+                  <input class="form-control" type="number" min="1" max="20" id="probe_fail_count" name="probe_fail_count" value="{{ settings.probeFailCount }}">
+               </div>
+               <div class="col-sm-4">
+                  <label class="form-label" for="probe_timeout">{{ __('Timeout (seconds)', 'assetwatch') }}</label>
+                  <input class="form-control" type="number" min="1" max="15" id="probe_timeout" name="probe_timeout" value="{{ settings.probeTimeout }}">
+               </div>
+               <div class="col-sm-4">
+                  <label class="form-label" for="probe_tcp_ports">{{ __('TCP ports tried', 'assetwatch') }}</label>
+                  <input class="form-control" type="text" id="probe_tcp_ports" name="probe_tcp_ports" value="{{ settings.probeTcpPorts|join(',') }}" placeholder="22,3389,443,80">
+               </div>
+            </div>
+            <p class="small text-muted mt-2 mb-2">
+               {% if probe_last %}
+                  {{ __('Last run %1$s: %2$d answer, %3$d agent not answering, %4$d not answering.', 'assetwatch')|format(probe_last, probe_counts.ok, probe_counts.agent_down, probe_counts.unreachable) }}
+               {% else %}
+                  {{ __('Not run yet.', 'assetwatch') }}
+               {% endif %}
+               {{ __('If most machines fail in one run, the probe assumes a network problem on the GLPI side and leaves the alerts as they are.', 'assetwatch') }}
+            </p>
+            <button type="submit" name="probe_test" value="1" class="btn btn-outline-secondary" formnovalidate>
+               <i class="ti ti-player-play me-1"></i>{{ __('Probe once now (test, no e-mail)', 'assetwatch') }}
+            </button>
+            {% if probe_test %}
+               <div class="alert {{ probe_test.ok == probe_test.total ? 'alert-success' : 'alert-warning' }} mt-3 mb-0">
+                  <div>
+                  <b>{{ __('Test result', 'assetwatch') }}</b>:
+                  {{ __('%1$d target(s) in %2$s s: %3$d answer, %4$d agent not answering, %5$d not answering.', 'assetwatch')|format(probe_test.total, probe_test.seconds, probe_test.ok, probe_test.agent_down, probe_test.unreachable) }}
+                  {% if probe_test.storm %}<br>{{ __('Most targets failed: check that the GLPI host can reach the machines (firewall, routing) before enabling the probe.', 'assetwatch') }}{% endif %}
+                  {% if probe_test.failures is not empty %}
+                     <ul class="mb-0 mt-2">
+                        {% for f in probe_test.failures|slice(0, 30) %}
+                           <li><a href="{{ f.url }}">{{ f.name }}</a> <small class="text-muted">{{ f.type }}</small> —
+                              {{ f.result == 'agent_down' ? __('Agent not answering', 'assetwatch') : __('Not answering', 'assetwatch') }}
+                              <small class="text-muted">({{ f.checked }})</small></li>
+                        {% endfor %}
+                     </ul>
+                  {% endif %}
+                  </div>
+               </div>
+            {% endif %}
+         </div>
+      </div>
+
+      <div class="card mb-3">
+         <div class="card-header"><h3 class="card-title">{{ __('Checks on inventory data', 'assetwatch') }}</h3></div>
+         <div class="card-body">
+            <label class="form-check">
+               <input class="form-check-input" type="checkbox" name="check_reboot" value="1" {{ settings.checkReboot ? 'checked' : '' }}>
+               <span class="form-check-label">{{ __('Unexpected reboot (boot time reported by the agent changed)', 'assetwatch') }}</span>
+            </label>
+            <div class="ms-4 mb-3">
+               <label class="form-label small" for="reboot_quiet_hours">{{ __('Not reported when the boot time is in these daily windows (e.g. 02:00-06:00, comma separated)', 'assetwatch') }}</label>
+               <input class="form-control form-control-sm" style="max-width: 20rem" type="text" id="reboot_quiet_hours" name="reboot_quiet_hours" value="{{ settings.rebootQuietHours }}" placeholder="02:00-06:00">
+            </div>
+            <label class="form-check">
+               <input class="form-check-input" type="checkbox" name="check_antivirus" value="1" {{ settings.checkAntivirus ? 'checked' : '' }}>
+               <span class="form-check-label">{{ __('Antivirus disabled, not up to date or license expired (as reported by the agent)', 'assetwatch') }}</span>
+            </label>
+            <label class="form-check">
+               <input class="form-check-input" type="checkbox" name="check_disk_forecast" value="1" {{ settings.checkDiskForecast ? 'checked' : '' }}>
+               <span class="form-check-label">{{ __('Disk filling up: free space trend of the last 30 days reaches the low-space threshold within', 'assetwatch') }}</span>
+            </label>
+            <div class="ms-4 mb-3 d-flex align-items-center gap-2">
+               <input class="form-control form-control-sm" style="max-width: 6rem" type="number" min="1" max="365" name="disk_forecast_days" value="{{ settings.diskForecastDays }}" aria-label="{{ __('days', 'assetwatch') }}">
+               <span class="small">{{ __('days', 'assetwatch') }}</span>
+            </div>
+            <label class="form-label" for="agent_min_version">{{ __('Minimum GLPI Agent version (empty = not checked)', 'assetwatch') }}</label>
+            <input class="form-control" style="max-width: 10rem" type="text" id="agent_min_version" name="agent_min_version" value="{{ settings.agentMinVersion }}" placeholder="1.11">
+            {% if agent_versions is not empty %}
+               <p class="small text-muted mt-1 mb-0">{{ __('In use:', 'assetwatch') }}
+                  {% for v, n in agent_versions %}<span class="badge bg-secondary-lt me-1">{{ v }} × {{ n }}</span>{% endfor %}
+               </p>
+            {% endif %}
+         </div>
+      </div>
+
       <div class="card mb-3">
          <div class="card-header"><h3 class="card-title">{{ __('Network identity', 'assetwatch') }}</h3></div>
          <div class="card-body">

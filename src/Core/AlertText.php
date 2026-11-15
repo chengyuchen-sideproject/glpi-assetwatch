@@ -20,6 +20,14 @@ final class AlertText
     public const TYPE_HARDWARE  = 'hardware';
     public const TYPE_IDENTITY  = 'identity';
     public const TYPE_RACK      = 'rack';
+    // 2.5: liveness probe (condition alerts)
+    public const TYPE_UNREACHABLE = 'unreachable';
+    public const TYPE_AGENT_DOWN  = 'agent_down';
+    // 2.5: rules on inventory data
+    public const TYPE_REBOOT         = 'reboot';
+    public const TYPE_ANTIVIRUS      = 'antivirus';
+    public const TYPE_AGENT_OUTDATED = 'agent_outdated';
+    public const TYPE_DISK_FORECAST  = 'disk_forecast';
 
     public const MAX_LENGTH = 255;
 
@@ -59,6 +67,35 @@ final class AlertText
                 if (!empty($content['user'])) {
                     $text .= ' (' . $content['user'] . ')';
                 }
+                break;
+            case self::TYPE_UNREACHABLE:
+            case self::TYPE_AGENT_DOWN:
+                $text = sprintf(
+                    '%s since %s (%d failed checks; last OK: %s)',
+                    $type === self::TYPE_UNREACHABLE ? 'No answer' : 'Agent not answering, host up',
+                    (string) ($content['since'] ?? '?'),
+                    (int) ($content['fail_count'] ?? 0),
+                    (string) (($content['last_ok'] ?? '') ?: '-')
+                );
+                break;
+            case self::TYPE_REBOOT:
+                $text = sprintf('Rebooted at %s (previous boot: %s)', (string) ($content['last_boot'] ?? '?'), (string) ($content['previous_boot'] ?? '?'));
+                break;
+            case self::TYPE_ANTIVIRUS:
+                $text = sprintf('%s: %s', (string) ($content['name'] ?? '?'), implode(', ', (array) ($content['problems'] ?? [])));
+                break;
+            case self::TYPE_AGENT_OUTDATED:
+                $text = sprintf('GLPI Agent %s < %s', (string) ($content['version'] ?? '?'), (string) ($content['minimum'] ?? '?'));
+                break;
+            case self::TYPE_DISK_FORECAST:
+                $text = sprintf(
+                    '[%s] low in about %d days (%s GB free, -%s GB/day, threshold %s GB)',
+                    (string) ($content['mountpoint'] ?? '?'),
+                    (int) ($content['days'] ?? 0),
+                    self::number($content['free_gb'] ?? 0),
+                    self::number($content['gb_per_day'] ?? 0),
+                    self::number($content['threshold_gb'] ?? 0)
+                );
                 break;
             default:
                 $text = '';

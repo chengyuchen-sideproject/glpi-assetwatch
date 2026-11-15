@@ -68,6 +68,7 @@ function plugin_assetwatch_computer_purged(CommonDBTM $item)
         PluginAssetwatchSnapshot::purgeForComputer((int) $item->getID());
         PluginAssetwatchAlert::purgeForComputer((int) $item->getID());
         PluginAssetwatchUplink::purgeForItem($item);
+        PluginAssetwatchProbe::purgeForItem($item);
     }
 }
 
@@ -80,4 +81,5 @@ function plugin_assetwatch_computer_purged(CommonDBTM $item)
 function plugin_assetwatch_linkable_purged(CommonDBTM $item)
 {
     PluginAssetwatchUplink::purgeForItem($item);
+    PluginAssetwatchProbe::purgeForItem($item);
 }

@@ -67,10 +67,11 @@ class PluginAssetwatchConfig extends CommonGLPI
     public static function saveFromForm(array $input): void
     {
         $values = [];
-        foreach (['check_noreport', 'check_disk', 'check_hardware', 'check_identity', 'check_rack'] as $flag) {
+        foreach (['check_noreport', 'check_disk', 'check_hardware', 'check_identity', 'check_rack',
+                  'check_probe', 'probe_devices', 'check_reboot', 'check_antivirus', 'check_disk_forecast'] as $flag) {
             $values[$flag] = !empty($input[$flag]) ? '1' : '0';
         }
-        foreach (['noreport_default_hours', 'reminder_days', 'retention_days', 'retire_days'] as $int) {
+        foreach (['noreport_default_hours', 'reminder_days', 'retention_days', 'retire_days', 'probe_fail_count', 'probe_timeout', 'disk_forecast_days'] as $int) {
             if (isset($input[$int]) && is_numeric($input[$int])) {
                 $values[$int] = (string) (int) $input[$int];
             }
@@ -105,6 +106,12 @@ class PluginAssetwatchConfig extends CommonGLPI
         }
         $values['room_subnets'] = json_encode((object) $subnets);
 
+        foreach (['probe_tcp_ports', 'reboot_quiet_hours', 'agent_min_version'] as $text) {
+            if (isset($input[$text])) {
+                $values[$text] = trim((string) $input[$text]);
+            }
+        }
+
         // Re-validate through Settings so that the stored values are always usable.
         $settings = Settings::fromArray(array_merge(Settings::DEFAULTS, $values));
         $values['noreport_default_hours'] = (string) $settings->noReportDefaultHours;
@@ -113,6 +120,12 @@ class PluginAssetwatchConfig extends CommonGLPI
         $values['retire_days']            = (string) $settings->retireDays;
         $values['disk_min_free_percent']  = (string) $settings->diskMinFreePercent;
         $values['disk_min_free_gb']       = (string) $settings->diskMinFreeGb;
+        $values['probe_fail_count']       = (string) $settings->probeFailCount;
+        $values['probe_timeout']          = (string) $settings->probeTimeout;
+        $values['probe_tcp_ports']        = implode(',', $settings->probeTcpPorts);
+        $values['reboot_quiet_hours']     = $settings->rebootQuietHours;
+        $values['agent_min_version']      = $settings->agentMinVersion;
+        $values['disk_forecast_days']     = (string) $settings->diskForecastDays;
 
         Config::setConfigurationValues(PluginAssetwatchInstall::CONFIG_CONTEXT, $values);
         self::resetCache();
@@ -135,7 +148,11 @@ class PluginAssetwatchConfig extends CommonGLPI
         }
 
         $cron = new CronTask();
-        foreach (['AssetwatchChanges', 'AssetwatchStatus', 'AssetwatchPurge'] as $name) {
+        $tasks = ['AssetwatchChanges', 'AssetwatchStatus', 'AssetwatchPurge'];
+        if (self::getSettings()->checkProbe) {
+            $tasks[] = 'AssetwatchProbe';
+        }
+        foreach ($tasks as $name) {
             if (!$cron->getFromDBbyName(PluginAssetwatchAlert::class, $name)) {
                 $checks[] = ['level' => 'danger', 'message' => sprintf(__('Automatic action %s is missing: reinstall the plugin.', 'assetwatch'), $name)];
                 continue;
@@ -204,8 +221,32 @@ class PluginAssetwatchConfig extends CommonGLPI
             ];
         }
 
+        // 2.5: last probe run (counts by state) and agent versions in use.
+        $probe_counts = ['ok' => 0, 'agent_down' => 0, 'unreachable' => 0];
+        $probe_last = null;
+        foreach ($DB->request([
+            'SELECT'  => ['state', 'COUNT' => 'id AS cpt', 'MAX' => 'date_last_probe AS last'],
+            'FROM'    => PluginAssetwatchProbe::getTable(),
+            'GROUPBY' => 'state',
+        ]) as $row) {
+            $probe_counts[(string) $row['state']] = (int) $row['cpt'];
+            $probe_last = max($probe_last ?? '', (string) $row['last']);
+        }
+        $versions = [];
+        foreach (PluginAssetwatchRepository::agentsByComputer() as $agent) {
+            $v = \GlpiPlugin\Assetwatch\Core\HealthRules::normalizeVersion($agent['version']) ?: '?';
+            $versions[$v] = ($versions[$v] ?? 0) + 1;
+        }
+        uksort($versions, static fn (string $a, string $b): int => version_compare($b, $a));
+        $probe_test = $_SESSION['assetwatch_probe_test'] ?? null;
+        unset($_SESSION['assetwatch_probe_test']);
+
         TemplateRenderer::getInstance()->display('@assetwatch/config.html.twig', [
             'settings'    => $settings,
+            'probe_counts' => $probe_counts,
+            'probe_last'  => $probe_last,
+            'probe_test'  => $probe_test,
+            'agent_versions' => $versions,
             'types'       => $types,
             'rooms'       => $rooms,
             'audit_url'   => PluginAssetwatchAudit::getSearchURL(),

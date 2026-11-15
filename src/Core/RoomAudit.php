@@ -75,12 +75,19 @@ final class RoomAudit
     public static function status(array $item, DateTimeImmutable $now, Settings $settings): string
     {
         $last = $item['last_inventory'] ?? null;
-        if (empty($item['inventoried']) || $last === null || $last === '' || str_starts_with((string) $last, '0000-00-00')) {
-            return self::STATUS_NO_AGENT;
+        $inventoried = !(empty($item['inventoried']) || $last === null || $last === '' || str_starts_with((string) $last, '0000-00-00'));
+        if ($inventoried) {
+            $hours = self::hoursSince((string) $last, $now);
+            if ($hours !== null && $hours >= $settings->retireDays * 24) {
+                return self::STATUS_RETIRED;
+            }
         }
-        $hours = self::hoursSince((string) $last, $now);
-        if ($hours !== null && $hours >= $settings->retireDays * 24) {
-            return self::STATUS_RETIRED;
+        // 2.5: the liveness probe found it down (agent or TCP), also for assets without agent.
+        if (!empty($item['probe_down'])) {
+            return self::STATUS_OFFLINE;
+        }
+        if (!$inventoried) {
+            return self::STATUS_NO_AGENT;
         }
         $types_id = ($item['itemtype'] ?? '') === 'Computer' ? (int) ($item['computertypes_id'] ?? 0) : 0;
         if (NoReportRule::evaluate((string) $last, $types_id, $now, $settings) !== null) {

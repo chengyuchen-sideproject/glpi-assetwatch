@@ -102,6 +102,7 @@ def topology_checks(c, room_a, room_b, dc_id, sw1, sw2, ghost, ra1):
     check("rack AW-RA1 coloured by assets to check (2 = warn)", 'data-issues="warn" data-units="ok" data-power="ok"' in html, "levels not found")
     check("rack card anchor + label link", f'id="aw-rack-{ra1}"' in html and f"racklabel.php?rack={ra1}" in html, "missing")
     check("inventory links the topology", f"topology.php?scope=room%3A{room_a}" in html, "missing")
+    check("inventory page offers 'Report now'", 'name="request_inventory"' in html, "button missing")
     status, html = c.get(f"/front/dcroom.form.php?id={room_a}")
     check("server room form has the floor map tab", "PluginAssetwatchRoomMap$1" in html, "tab missing")
     status, html = c.get(f"/ajax/common.tabs.php?_target=/front/dcroom.form.php&_itemtype=DCRoom&_glpi_tab=PluginAssetwatchRoomMap$1&id={room_a}", ajax=True)
@@ -179,6 +180,26 @@ def topology_checks(c, room_a, room_b, dc_id, sw1, sw2, ghost, ra1):
     check("typed connection removed", "0 added, 1 removed." in removed and "Port used twice" not in removed and n_remove(removed) == 2, "not removed")
 
 
+def probe_checks(c):
+    """2.5: configuration of the probe and the new checks, probe test button, probe state in the inventory."""
+    plugin = "/plugins/assetwatch/front"
+    status, html = c.get(f"{plugin}/config.form.php")
+    page_ok("configuration page with the probe card", status, html, 'id="probe"')
+    for name in ("check_probe", "probe_tcp_ports", "check_reboot", "reboot_quiet_hours", "check_antivirus",
+                 "agent_min_version", "check_disk_forecast", "disk_forecast_days"):
+        check(f"configuration field {name}", f'name="{name}"' in html, "missing")
+    check("agent versions in use listed", "1.11 × 4" in html, "not found")
+    status, html = c.post(f"{plugin}/config.form.php", {"_glpi_csrf_token": csrf(html), "probe_test": "1"})
+    page_ok("probe test button", status, html, "Test result")
+    check("probe test: 6 targets, 1 agent not answering, 3 not answering",
+          "6 target(s)" in html and "2 answer, 1 agent not answering, 3 not answering" in html, "unexpected result")
+    status, html = c.get(f"{plugin}/audit.php?scope=unassigned")
+    page_ok("inventory page shows the probe state", status, html, "aw-pr-down")
+    check("probe state labels", "Agent not answering" in html and "Answers" in html, "labels missing")
+    status, html = c.get("/plugins/assetwatch/front/alert.php")
+    page_ok("alert list with the new types", status, html, "PluginAssetwatchAlert")
+
+
 def audit_checks(c, room_a, room_b, dc_id):
     """2.2: datacenter inventory page, CSV, room networks setting, "Server room" dashboard filter."""
     plugin = "/plugins/assetwatch/front"
@@ -212,6 +233,7 @@ def audit_checks(c, room_a, room_b, dc_id):
     form = {
         "_glpi_csrf_token": csrf(html), "update": "1",
         "check_noreport": "1", "check_disk": "1", "check_hardware": "1", "check_identity": "1", "check_rack": "1",
+        "check_reboot": "1", "check_antivirus": "1", "check_disk_forecast": "1", "probe_devices": "1",
         "retire_days": "45",
         f"room_subnets[{room_a}]": "10.1.0.0/16\nbogus",
         f"room_subnets[{room_b}]": "172.16.0.0/12",
@@ -265,9 +287,17 @@ def main():
                         help="only run the datacenter inventory checks (fixture of glpi_actions.php audit-fixture)")
     parser.add_argument("--topology", nargs=7, type=int, metavar=("ROOM_A", "ROOM_B", "DC", "SW1", "SW2", "GHOST", "RA1"),
                         help="only run the floor map / rack label / topology checks (glpi_actions.php topology-fixture)")
+    parser.add_argument("--probe", action="store_true", help="only run the 2.5 probe / health checks (scenario step 11d)")
     args = parser.parse_args()
 
     c = Client(args.base)
+    if args.probe:
+        if not login(c):
+            print("login form not found")
+            return 1
+        probe_checks(c)
+        print(f"\n{len(FAILS)} UI check(s) failed" if FAILS else "\nUI smoke OK")
+        return 1 if FAILS else 0
     if args.topology:
         if not login(c):
             print("login form not found")
@@ -353,6 +383,7 @@ def main():
     status, html = c.post(f"{plugin}/config.form.php", {
         "_glpi_csrf_token": token, "update": "1",
         "check_noreport": "1", "check_disk": "1", "check_hardware": "1", "check_identity": "1", "check_rack": "1",
+        "check_reboot": "1", "check_antivirus": "1", "check_disk_forecast": "1", "probe_devices": "1",
         "noreport_default_hours": "48", "disk_min_free_percent": "12.5", "disk_min_free_gb": "25",
         "disk_excluded_fs": "tmpfs, devtmpfs", "disk_excluded_mounts": "/boot*",
         "port_excluded_patterns": "lo\ndocker*", "reminder_days": "2", "retention_days": "90",
@@ -365,6 +396,7 @@ def main():
     c.post(f"{plugin}/config.form.php", {
         "_glpi_csrf_token": token, "update": "1",
         "check_noreport": "1", "check_disk": "1", "check_hardware": "1", "check_identity": "1", "check_rack": "1",
+        "check_reboot": "1", "check_antivirus": "1", "check_disk_forecast": "1", "probe_devices": "1",
         "noreport_default_hours": "36", "disk_min_free_percent": "10", "disk_min_free_gb": "20",
         "disk_excluded_fs": "tmpfs,devtmpfs,overlay,squashfs,iso9660,udf,ramfs,devfs,autofs,nsfs",
         "disk_excluded_mounts": "",

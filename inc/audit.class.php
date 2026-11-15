@@ -434,8 +434,9 @@ class PluginAssetwatchAudit extends CommonGLPI
             $ids[$item['itemtype']][] = $item['id'];
         }
 
-        $groups = $ips = $disk_low = $duplicates = $specs = [];
+        $groups = $ips = $disk_low = $duplicates = $specs = $probes = [];
         foreach ($ids as $itemtype => $list) {
+            $probes[$itemtype] = PluginAssetwatchProbe::statesOf($itemtype, $list);
             foreach ($DB->request([
                 'SELECT'     => ['glpi_groups_items.items_id', 'glpi_groups.completename'],
                 'FROM'       => 'glpi_groups_items',
@@ -537,6 +538,9 @@ class PluginAssetwatchAudit extends CommonGLPI
             $items[$i]['disk_low'] = $type === 'Computer' && isset($disk_low[$id]);
             $items[$i]['serial_duplicates'] = $item['serial'] !== '' ? ($duplicates[$type][$item['serial']] ?? 0) : 0;
             $items[$i]['spec'] = $type === 'Computer' ? ($specs[$id] ?? '') : '';
+            // 2.5: liveness probe (only when enabled): down = alerting state.
+            $items[$i]['probe'] = $probes[$type][$id] ?? null;
+            $items[$i]['probe_down'] = !empty($probes[$type][$id]['down']);
         }
         return $items;
     }
@@ -666,6 +670,36 @@ class PluginAssetwatchAudit extends CommonGLPI
         return self::getSearchURL(false) . '?' . http_build_query(['scope' => 'room:' . $room_id, 'rack' => $rack_id]);
     }
 
+    /**
+     * Computers of a scope (or of one rack of it) that have an agent: targets of "inventory now".
+     *
+     * @return int[]
+     */
+    public static function computersOf(string $scope_key, int $rack_id): array
+    {
+        $scope = self::resolveScope($scope_key, self::rooms());
+        if ($scope === null) {
+            return [];
+        }
+        $result = self::collect($scope['room_ids'], $scope['unassigned']);
+        $rack = self::resolveRack($scope, $rack_id);
+        if ($rack !== null) {
+            $result = self::onlyRack($result, $rack['id']);
+        }
+        $ids = [];
+        foreach ($result['items'] as $item) {
+            if ($item['itemtype'] === 'Computer' && $item['inventoried']) {
+                $ids[] = (int) $item['id'];
+            }
+        }
+        return $ids;
+    }
+
+    public static function canRequestInventory(): bool
+    {
+        return Session::haveRight('computer', UPDATE);
+    }
+
     public static function showPage(string $scope_key, int $rack_id = 0): void
     {
         $rooms = self::rooms();
@@ -713,6 +747,8 @@ class PluginAssetwatchAudit extends CommonGLPI
             'sticker_url'    => PluginAssetwatchRackLabel::getUrl(['format' => 'sticker']) . '&rack=',
             'scope'          => $scope,
             'only_rack'      => $rack,
+            'can_request'    => self::canRequestInventory() && $result !== null && !$scope['unassigned'],
+            'probe_enabled'  => PluginAssetwatchConfig::getSettings()->checkProbe,
             'scope_key'      => $scope_key,
             'result'         => $result,
             'groups'         => $groups,

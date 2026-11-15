@@ -31,6 +31,9 @@ class PluginAssetwatchInstall
      */
     public const STORAGE_FORMAT_KEY = 'storage_format';
 
+    /** 2.5: free space of each partition at each inventory (disk trend). */
+    public const DISK_HISTORY_TABLE = 'glpi_plugin_assetwatch_diskhistories';
+
     public static function install(Migration $migration): void
     {
         /** @var DBmysql $DB */
@@ -91,6 +94,8 @@ class PluginAssetwatchInstall
             PluginAssetwatchSnapshot::getTable(),
             PluginAssetwatchDigest::getTable(),
             PluginAssetwatchUplink::getTable(),
+            PluginAssetwatchProbe::getTable(),
+            self::DISK_HISTORY_TABLE,
         ];
     }
 
@@ -199,6 +204,43 @@ class PluginAssetwatchInstall
                 KEY `users_id` (`users_id`),
                 KEY `date_creation` (`date_creation`),
                 KEY `date_mod` (`date_mod`)
+            ) ENGINE=InnoDB DEFAULT CHARSET={$charset} COLLATE={$collation} ROW_FORMAT=DYNAMIC", $DB->error());
+        }
+
+        // 2.5: liveness probe state, one row per probed asset.
+        $table = PluginAssetwatchProbe::getTable();
+        if (!$DB->tableExists($table)) {
+            $migration->displayMessage("Creating $table");
+            $DB->doQueryOrDie("CREATE TABLE `$table` (
+                `id` int {$sign} NOT NULL AUTO_INCREMENT,
+                `itemtype` varchar(100) NOT NULL DEFAULT '',
+                `items_id` int {$sign} NOT NULL DEFAULT '0',
+                `state` varchar(16) NOT NULL DEFAULT 'ok',
+                `fail_count` int NOT NULL DEFAULT '0',
+                `checked` varchar(255) NOT NULL DEFAULT '',
+                `date_first_fail` timestamp NULL DEFAULT NULL,
+                `date_last_ok` timestamp NULL DEFAULT NULL,
+                `date_last_probe` timestamp NULL DEFAULT NULL,
+                PRIMARY KEY (`id`),
+                UNIQUE KEY `item` (`itemtype`, `items_id`),
+                KEY `state` (`state`)
+            ) ENGINE=InnoDB DEFAULT CHARSET={$charset} COLLATE={$collation} ROW_FORMAT=DYNAMIC", $DB->error());
+        }
+
+        // 2.5: disk trend samples.
+        $table = self::DISK_HISTORY_TABLE;
+        if (!$DB->tableExists($table)) {
+            $migration->displayMessage("Creating $table");
+            $DB->doQueryOrDie("CREATE TABLE `$table` (
+                `id` int {$sign} NOT NULL AUTO_INCREMENT,
+                `computers_id` int {$sign} NOT NULL DEFAULT '0',
+                `mountpoint` varchar(255) NOT NULL DEFAULT '',
+                `total_mb` bigint NOT NULL DEFAULT '0',
+                `free_mb` bigint NOT NULL DEFAULT '0',
+                `date` timestamp NULL DEFAULT NULL,
+                PRIMARY KEY (`id`),
+                KEY `computer_mount_date` (`computers_id`, `mountpoint`(100), `date`),
+                KEY `date` (`date`)
             ) ENGINE=InnoDB DEFAULT CHARSET={$charset} COLLATE={$collation} ROW_FORMAT=DYNAMIC", $DB->error());
         }
     }
@@ -367,6 +409,13 @@ class PluginAssetwatchInstall
             'AssetwatchPurge',
             DAY_TIMESTAMP,
             $common + ['comment' => 'Purge alert and digest history older than the retention period']
+        );
+        // 2.5: does nothing until the probe is enabled in the plugin configuration.
+        CronTask::register(
+            PluginAssetwatchAlert::class,
+            'AssetwatchProbe',
+            5 * MINUTE_TIMESTAMP,
+            $common + ['comment' => 'Check that machines and GLPI Agents answer (liveness probe)']
         );
     }
 

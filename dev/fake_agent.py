@@ -11,6 +11,7 @@ Examples:
     python dev/fake_agent.py web01 --disk /:102400:4096        # / with 4 GB free
     python dev/fake_agent.py win01 --os windows --disk C::51200:2048
     python dev/fake_agent.py web01 --ip 10.0.0.99 --mac 00:11:22:33:44:99
+    python dev/fake_agent.py web01 --boot-time "2026-11-15 10:30:00" --antivirus Defender:0:1 --agent-version 1.7
 """
 
 import argparse
@@ -82,13 +83,25 @@ def build(args):
                 if windows else
                 {"name": "Rocky Linux", "full_name": "Rocky Linux release 9.4 (Blue Onyx)", "version": "9.4",
                  "arch": "x86_64", "kernel_name": "linux", "kernel_version": "5.14.0-427.el9.x86_64"})
+    if args.boot_time:
+        os_block["boot_time"] = args.boot_time
+
+    antivirus = []
+    for spec in args.antivirus or []:
+        # name:enabled:uptodate[:expiration YYYY-MM-DD]
+        parts = spec.split(":")
+        av = {"name": parts[0], "company": "Test", "enabled": parts[1] == "1", "uptodate": parts[2] == "1",
+              "version": "4.18", "base_version": "1.401"}
+        if len(parts) > 3:
+            av["expiration"] = parts[3]
+        antivirus.append(av)
 
     return {
         "action": "inventory",
         "deviceid": f"{name}-2026-01-01-00-00-00",
         "itemtype": "Computer",
         "content": {
-            "versionclient": "GLPI-Agent_v1.11",
+            "versionclient": f"GLPI-Agent_v{args.agent_version}",
             "hardware": {"name": args.hostname or name, "memory": args.memory, "uuid": stable_hex(name, "uuid", 32),
                          "workgroup": "assetwatch.test"},
             "bios": {"ssn": args.serial or f"SN-{name.upper()}", "smanufacturer": "Dell Inc.",
@@ -99,6 +112,7 @@ def build(args):
             "drives": drives,
             "networks": networks,
             "operatingsystem": os_block,
+            **({"antivirus": antivirus} if antivirus else {}),
         },
     }
 
@@ -118,6 +132,9 @@ def main():
     parser.add_argument("--disk", action="append", help="partition 'mount:total_mb:free_mb' (repeatable)")
     parser.add_argument("--mac")
     parser.add_argument("--ip")
+    parser.add_argument("--boot-time", help="operating system boot time 'YYYY-MM-DD HH:MM:SS'")
+    parser.add_argument("--antivirus", action="append", help="antivirus 'name:enabled(0/1):uptodate(0/1)[:expiration]' (repeatable)")
+    parser.add_argument("--agent-version", default="1.11", help="GLPI Agent version (versionclient and User-Agent)")
     parser.add_argument("--dump", action="store_true", help="print the JSON instead of sending it")
     args = parser.parse_args()
     if args.drives is None:
@@ -131,7 +148,7 @@ def main():
 
     request = urllib.request.Request(args.url, data=body, headers={
         "Content-Type": "application/json",
-        "User-Agent": "GLPI-Agent_v1.11",
+        "User-Agent": f"GLPI-Agent_v{args.agent_version}",
         "GLPI-Agent-ID": stable_hex(args.name, "agentid", 8) + "-" + stable_hex(args.name, "a2", 4) + "-4"
                          + stable_hex(args.name, "a3", 3) + "-8" + stable_hex(args.name, "a4", 3) + "-"
                          + stable_hex(args.name, "a5", 12),

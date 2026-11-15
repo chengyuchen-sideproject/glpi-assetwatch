@@ -101,6 +101,8 @@ sql "DELETE FROM glpi_items_racks WHERE itemtype='Computer' AND items_id IN (SEL
 glpi_action purge aw-web01 aw-web02 aw-win01 aw-aud01 aw-aud02 aw-aud03 aw-aud04
 glpi_action audit-cleanup
 sql "DELETE FROM glpi_plugin_assetwatch_alerts; DELETE FROM glpi_plugin_assetwatch_snapshots; DELETE FROM glpi_plugin_assetwatch_digests; DELETE FROM glpi_queuednotifications;"
+# Machines of the 2.5 step (left over by an interrupted run).
+glpi_action purge aw-pr-ok aw-pr-down aw-pr-dead aw-hl01
 curl -s -X DELETE http://localhost:8025/api/v1/messages >/dev/null
 
 # The checks expect English mails until step 11; remember the glpi user's own
@@ -286,6 +288,129 @@ glpi_action purge aw-aud01 aw-aud02 aw-aud03
 sql "UPDATE glpi_configs SET value='{}' WHERE context='plugin:assetwatch' AND name='room_subnets';"
 restore_language
 
+log "11d. Liveness probe, inventory now, reboot, antivirus, agent version, disk trend (2.5)"
+cfg() { sql "UPDATE glpi_configs SET value='$2' WHERE context='plugin:assetwatch' AND name='$1';"; }
+# The image's own cron worker runs due tasks every minute: push them far away during this step,
+# and wait when one is running (a forced run is skipped while the task is locked).
+sql "UPDATE glpi_crontasks SET frequency=86400, lastrun=NOW() WHERE name IN ('AssetwatchProbe','AssetwatchStatus','AssetwatchChanges');"
+cron_now() {
+    for _ in $(seq 1 15); do
+        [ "$(sql "SELECT state FROM glpi_crontasks WHERE name='$1'")" = 2 ] || break
+        sleep 2
+    done
+    cron "$1"
+}
+GLPI_IP=$("${COMPOSE[@]}" exec -T glpi hostname -i | awk '{print $1}' | tr -d '\r')
+DB_IP=$("${COMPOSE[@]}" exec -T glpi getent hosts mariadb | awk '{print $1}' | tr -d '\r')
+# A fake agent HTTP endpoint in the glpi container (answers /status and /now).
+"${COMPOSE[@]}" exec -T glpi sh -c 'pkill -f fake_agent_httpd 2>/dev/null; : > /tmp/aw-fakeagent.log' || true
+"${COMPOSE[@]}" exec -d glpi php -S 0.0.0.0:62354 plugins/assetwatch/dev/fake_agent_httpd.php
+glpi_action purge aw-pr-ok aw-pr-down aw-pr-dead aw-hl01
+agent aw-pr-ok --ip "$GLPI_IP"
+agent aw-pr-down --ip "$DB_IP"
+agent aw-pr-dead --ip 192.0.2.10
+agent aw-hl01 --ip 10.30.0.1 --boot-time "2026-11-01 08:00:00" --disk /data:102400:40960 --antivirus Defender:1:1
+# Only the machines of this step are probed (the others have fake addresses).
+sql "DELETE a FROM glpi_agents a JOIN glpi_computers c ON c.id=a.items_id AND a.itemtype='Computer' WHERE c.name NOT LIKE 'aw-pr-%' AND c.name <> 'aw-hl01';
+INSERT INTO glpi_groups_items (groups_id, itemtype, items_id, type)
+SELECT g.id, 'Computer', c.id, 2 FROM glpi_groups g, glpi_computers c WHERE g.name='Server Team' AND c.name IN ('aw-pr-down','aw-pr-dead','aw-hl01');"
+cfg check_probe 0
+cfg check_reboot 1
+cfg check_antivirus 1
+cfg check_disk_forecast 1
+cfg probe_devices 1
+cfg disk_forecast_days 14
+cfg agent_min_version ''
+cfg reboot_quiet_hours ''
+sql "DELETE FROM glpi_plugin_assetwatch_probes; DELETE FROM glpi_plugin_assetwatch_diskhistories WHERE computers_id NOT IN (SELECT id FROM glpi_computers);"
+cfg probe_tcp_ports 3306
+cfg probe_timeout 2
+cfg probe_fail_count 2
+# Targets: the 4 machines with an agent, and aw-web02 / aw-win01 (in a rack, no agent left: TCP only).
+expect "probe test (dry run): 1 answers, 1 agent down, 4 not answering" '{"total":6,"ok":1,"agent_down":1,"unreachable":4,"failures":{"aw-hl01":"unreachable","aw-pr-dead":"unreachable","aw-pr-down":"agent_down","aw-web02":"unreachable","aw-win01":"unreachable"}}' "$(glpi_action probe-dry)"
+expect "dry run saves nothing" 0 "$(sql "SELECT COUNT(*) FROM glpi_plugin_assetwatch_probes")"
+cron_now AssetwatchProbe
+expect "probe disabled: nothing done" 0 "$(sql "SELECT COUNT(*) FROM glpi_plugin_assetwatch_probes")"
+cfg check_probe 1
+flush_mail >/dev/null
+curl -s -X DELETE http://localhost:8025/api/v1/messages >/dev/null
+cron_now AssetwatchProbe
+expect "first failure: no alert yet" 0 "$(count_alerts "alert_type IN ('unreachable','agent_down')")"
+cron_now AssetwatchProbe
+expect "second failure: alerts open (racked machines without agent too)" "aw-hl01=unreachable,aw-pr-dead=unreachable,aw-pr-down=agent_down,aw-web02=unreachable,aw-win01=unreachable" "$(sql "SELECT GROUP_CONCAT(CONCAT(item_name,'=',alert_type) ORDER BY item_name) FROM glpi_plugin_assetwatch_alerts WHERE status=1 AND alert_type IN ('unreachable','agent_down')")"
+flush_mail >/dev/null
+expect "probe alerts in the Server Team digest" 1 "$(mail_text_count_in 'Server Team' 'aw-pr-down')"
+cron_now AssetwatchProbe
+expect "third failure: same alerts, no duplicate" 5 "$(count_alerts "status=1 AND alert_type IN ('unreachable','agent_down')")"
+expect "digest explains 'agent not answering'" 1 "$(mail_text_count_in 'Server Team' 'Agent not answering')"
+# aw-pr-dead comes back (new address that answers)
+agent aw-pr-dead --ip "$GLPI_IP"
+cron_now AssetwatchProbe
+expect "answers again: alert resolved" "3" "$(sql "SELECT status FROM glpi_plugin_assetwatch_alerts WHERE item_name='aw-pr-dead' AND alert_type='unreachable'")"
+expect "inventory page shows the probe: aw-pr-down offline" "offline" "$(glpi_action audit-json unassigned | py -c "import json,sys; print(json.load(sys.stdin)['rows']['aw-pr-down']['status'])")"
+now_hits() { "${COMPOSE[@]}" exec -T glpi sh -c 'grep -c " /now" /tmp/aw-fakeagent.log || true' | tr -d '\r'; }
+NOW_BEFORE=$(now_hits)
+expect "inventory now: 2 requested, 1 not answering" '2 0 1' "$(glpi_action request-inventory aw-pr-ok aw-pr-dead aw-pr-down | py -c "import json,sys; d=json.load(sys.stdin); print(d['requested'], d['refused'], d['failed'])")"
+expect "agents received /now" 2 "$(( $(now_hits) - NOW_BEFORE ))"
+if py "$DEV_DIR/ui_smoke.py" --probe; then
+    PASS=$((PASS + 1))
+else
+    FAIL=$((FAIL + 1))
+fi
+cfg check_probe 0
+
+# Unexpected reboot (boot time changed), quiet hours.
+cron_now AssetwatchChanges
+agent aw-hl01 --ip 10.30.0.1 --boot-time "2026-11-15 10:30:00" --disk /data:102400:40960 --antivirus Defender:1:1
+cron_now AssetwatchChanges
+expect "reboot: one-shot alert" "Rebooted at 2026-11-15 10:30:00 (previous boot: 2026-11-01 08:00:00)" "$(sql "SELECT summary FROM glpi_plugin_assetwatch_alerts WHERE item_name='aw-hl01' AND alert_type='reboot'")"
+flush_mail >/dev/null
+expect "reboot in the Server Team digest" 1 "$(mail_text_count_in 'Server Team' 'Unexpected reboot')"
+cfg reboot_quiet_hours '10:00-11:00'
+agent aw-hl01 --ip 10.30.0.1 --boot-time "2026-11-15 10:45:00" --disk /data:102400:40960 --antivirus Defender:1:1
+cron_now AssetwatchChanges
+expect "reboot in quiet hours: no alert" 1 "$(count_alerts "item_name='aw-hl01' AND alert_type='reboot'")"
+cfg reboot_quiet_hours ''
+
+# Antivirus disabled, then fixed.
+agent aw-hl01 --ip 10.30.0.1 --boot-time "2026-11-15 10:45:00" --disk /data:102400:40960 --antivirus Defender:0:1
+cron_now AssetwatchChanges
+cron_now AssetwatchStatus
+expect "antivirus disabled: alert" "Defender: disabled" "$(sql "SELECT summary FROM glpi_plugin_assetwatch_alerts WHERE item_name='aw-hl01' AND alert_type='antivirus' AND status=1")"
+agent aw-hl01 --ip 10.30.0.1 --boot-time "2026-11-15 10:45:00" --disk /data:102400:40960 --antivirus Defender:1:1
+cron_now AssetwatchStatus
+expect "antivirus enabled again: resolved" 3 "$(sql "SELECT status FROM glpi_plugin_assetwatch_alerts WHERE item_name='aw-hl01' AND alert_type='antivirus'")"
+
+# Agent version below the minimum (agents of this step send 1.11).
+cfg agent_min_version 1.12
+cron_now AssetwatchStatus
+expect "outdated agents (4 machines of this step)" 4 "$(count_alerts "alert_type='agent_outdated' AND status=1")"
+expect "outdated agent summary" "GLPI Agent 1.11 < 1.12" "$(sql "SELECT summary FROM glpi_plugin_assetwatch_alerts WHERE item_name='aw-hl01' AND alert_type='agent_outdated'")"
+cfg agent_min_version ''
+
+# Disk trend: /data lost 10 GB in 5 days (2 GB/day), 40 GB free, low below 10 GB -> about 15 days.
+HL=$(sql "SELECT id FROM glpi_computers WHERE name='aw-hl01'")
+expect "disk samples recorded at each inventory" 1 "$(sql "SELECT COUNT(*) > 0 FROM glpi_plugin_assetwatch_diskhistories WHERE computers_id=$HL AND mountpoint='/data'")"
+sql "INSERT INTO glpi_plugin_assetwatch_diskhistories (computers_id, mountpoint, total_mb, free_mb, date) VALUES
+($HL, '/data', 102400, 51200, NOW() - INTERVAL 5 DAY), ($HL, '/data', 102400, 47104, NOW() - INTERVAL 3 DAY);
+UPDATE glpi_plugin_assetwatch_diskhistories SET date=NOW() WHERE computers_id=$HL AND mountpoint='/data' AND date > NOW() - INTERVAL 1 DAY;"
+cron_now AssetwatchStatus
+expect "15 days is beyond the 14-day horizon: no alert" 0 "$(count_alerts "alert_type='disk_forecast'")"
+cfg disk_forecast_days 30
+cron_now AssetwatchStatus
+expect "disk trend alert" "[/data] low in about 15 days (40.0 GB free, -2.0 GB/day, threshold 10.0 GB)" "$(sql "SELECT summary FROM glpi_plugin_assetwatch_alerts WHERE item_name='aw-hl01' AND alert_type='disk_forecast'")"
+cfg disk_forecast_days 14
+# leave no trace for the later steps
+"${COMPOSE[@]}" exec -T glpi sh -c 'pkill -f fake_agent_httpd 2>/dev/null' || true
+glpi_action purge aw-pr-ok aw-pr-down aw-pr-dead aw-hl01
+cfg probe_tcp_ports '22,3389,443,80'
+cfg probe_timeout 3
+expect "purging the machines drops their probe state" 0 "$(sql "SELECT COUNT(*) FROM glpi_plugin_assetwatch_probes p LEFT JOIN glpi_computers c ON c.id=p.items_id WHERE c.id IS NULL")"
+sql "DELETE FROM glpi_plugin_assetwatch_probes;
+DELETE FROM glpi_plugin_assetwatch_alerts WHERE alert_type IN ('unreachable','agent_down','reboot','antivirus','agent_outdated','disk_forecast');
+UPDATE glpi_crontasks SET frequency=300 WHERE name IN ('AssetwatchProbe','AssetwatchChanges');
+UPDATE glpi_crontasks SET frequency=3600 WHERE name='AssetwatchStatus';"
+
 log "12. No PHP error mentioning the plugin"
 ERRORS=$("${COMPOSE[@]}" exec -T glpi sh -c 'cat /var/glpi/logs/php-errors.log 2>/dev/null | grep -ci assetwatch' || true)
 expect "php-errors.log clean" 0 "${ERRORS:-0}"
@@ -320,7 +445,7 @@ expect "plugin cards removed from every dashboard" 0 "$(sql "SELECT COUNT(*) FRO
 "${COMPOSE[@]}" exec -T glpi php bin/console plugin:install --username=glpi assetwatch >/dev/null
 "${COMPOSE[@]}" exec -T glpi php bin/console plugin:activate assetwatch >/dev/null
 expect "reinstall: 4 notifications" 4 "$(sql "SELECT COUNT(*) FROM glpi_notifications WHERE itemtype LIKE 'PluginAssetwatch%'")"
-expect "reinstall: 3 automatic actions in CLI mode" 3 "$(sql "SELECT COUNT(*) FROM glpi_crontasks WHERE itemtype LIKE 'PluginAssetwatch%' AND mode=2")"
+expect "reinstall: 4 automatic actions in CLI mode" 4 "$(sql "SELECT COUNT(*) FROM glpi_crontasks WHERE itemtype LIKE 'PluginAssetwatch%' AND mode=2")"
 expect "reinstall: dashboard with 9 cards" 9 "$(sql "SELECT COUNT(*) FROM glpi_dashboards_items i JOIN glpi_dashboards_dashboards d ON d.id=i.dashboards_dashboards_id WHERE d.\`key\`='asset-watch'")"
 expect "reinstall: dashboard visible to Super-Admin" 1 "$(sql "SELECT COUNT(*) FROM glpi_dashboards_rights r JOIN glpi_dashboards_dashboards d ON d.id=r.dashboards_dashboards_id JOIN glpi_profiles p ON p.id=r.items_id AND r.itemtype='Profile' WHERE d.\`key\`='asset-watch' AND p.name='Super-Admin'")"
 expect "reinstall: Super-Admin has full alert rights" 257 "$(sql "SELECT pr.rights FROM glpi_profilerights pr JOIN glpi_profiles p ON p.id=pr.profiles_id WHERE p.name='Super-Admin' AND pr.name='plugin_assetwatch_alert'")"

@@ -245,6 +245,24 @@ switch ($action) {
         echo PluginAssetwatchAudit::rackPath($rack->getID(), (int) ($rack->fields['dcrooms_id'] ?? 0)), "\n";
         exit(0);
 
+    case 'request-inventory':
+        // php glpi_actions.php request-inventory <computer name>... -> "inventory now" summary
+        $ids = [];
+        foreach (array_slice($argv, 2) as $name) {
+            $ids[] = find_computer($name)->getID();
+        }
+        echo json_encode(PluginAssetwatchProbe::requestInventory($ids)), "\n";
+        exit(0);
+
+    case 'probe-dry':
+        // php glpi_actions.php probe-dry -> probe once, nothing saved (configuration test button)
+        $summary = PluginAssetwatchProbe::run(true);
+        echo json_encode([
+            'total' => $summary['total'], 'ok' => $summary['ok'], 'agent_down' => $summary['agent_down'],
+            'unreachable' => $summary['unreachable'], 'failures' => array_column($summary['failures'], 'result', 'name'),
+        ]), "\n";
+        exit(0);
+
     case 'roommap-json':
         // php glpi_actions.php roommap-json <room id> -> metrics per rack
         $room_id = (int) ($argv[2] ?? 0);

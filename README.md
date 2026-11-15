@@ -30,7 +30,9 @@ Since 2.2 it also gives a **datacenter inventory** page (each server room rack b
 live status and the discrepancies to check on site) and a **Server room** dashboard filter.
 Since 2.3: a **floor map** of each server room, printable **rack labels with QR codes**, and a
 **network topology** page (which device is plugged into which switch). Since 2.4: **rack QR
-stickers** that open the live inventory of the rack.
+stickers** that open the live inventory of the rack. Since 2.5: **active checks** between two
+inventories (liveness probe of agents and rack devices, "report now", unexpected reboot,
+antivirus, agent version, disk trend).
 
 ## Requirements / compatibility
 
@@ -86,13 +88,13 @@ to install or run it, so it only has to be carried in.
    its `.sha256` file from the
    [Releases](https://github.com/chengyuchen-sideproject/glpi-assetwatch/releases) page
    (or build it from a checkout:
-   `git archive --format=tar.gz --prefix=assetwatch/ -o assetwatch-2.4.0.tar.gz v2.4.0`).
+   `git archive --format=tar.gz --prefix=assetwatch/ -o assetwatch-2.5.0.tar.gz v2.5.0`).
    Avoid GitHub's "Download ZIP": its folder is named `glpi-assetwatch-main` and must be renamed.
 2. Copy both files to the GLPI host, then:
 
    ```bash
-   sha256sum -c assetwatch-2.4.0.tar.gz.sha256
-   tar -xzf assetwatch-2.4.0.tar.gz -C ./glpi_plugins     # creates glpi_plugins/assetwatch
+   sha256sum -c assetwatch-2.5.0.tar.gz.sha256
+   tar -xzf assetwatch-2.5.0.tar.gz -C ./glpi_plugins     # creates glpi_plugins/assetwatch
    chmod -R a+rX ./glpi_plugins/assetwatch                # readable by www-data (uid 33)
    ```
 
@@ -242,13 +244,41 @@ room, a datacenter or all rooms:
 - **Port used twice**: the same port of a network device recorded for several assets.
 - **Export CSV** (one line per connection, then the devices without connection) and **Print**.
 
+### Active checks (since 2.5)
+
+The GLPI Agent only sends data when it sends an inventory. 2.5 adds checks that catch problems
+between two inventories, or that the inventory data already reveals:
+
+| Check | How | Alert | Default |
+|---|---|---|---|
+| **Liveness probe** | every 5 minutes (automatic action `AssetwatchProbe`), ask each GLPI Agent whether it is there (the same "status" request as the agent page of GLPI); when it does not answer, try a TCP connection to the configured ports (default 22, 3389, 443, 80) on its addresses. Assets placed in a rack without agent (switches, PDUs...) are checked by TCP only | **Not answering** (nothing answers) / **Agent not answering** (the machine answers on TCP, the agent does not: service stopped, port filtered), after N failed runs in a row (default 2, i.e. about 10 minutes); resolved when it answers again | **off** |
+| **Report now** | button of the datacenter inventory page: ask every agent of the room (or rack) to send its inventory now | - | right *Computers: Update* |
+| **Unexpected reboot** | the boot time reported by the agent changed; daily quiet windows (e.g. `02:00-06:00`) for planned reboots | one-shot | on |
+| **Antivirus** | antivirus reported disabled, not up to date or with an expired license | until fixed | on |
+| **Outdated GLPI Agent** | agent version below a minimum (the configuration page lists the versions in use) | until updated | off (no minimum) |
+| **Disk filling up** | linear trend of the free space of each partition over the last 30 days (sampled at each inventory, kept 60 days): the low-space threshold is reached within N days (default 14) | until the trend changes | on |
+
+All of them go to the digest of the technical group, like "no inventory" and "low disk space".
+
+- The probe needs the agents running as a service (default of the Windows / Linux installers)
+  and the GLPI host allowed to reach the machines on **TCP 62354** (and the TCP ports set).
+  "Report now" also needs the GLPI host in the agents' **`httpd-trust`** option.
+- **Probe once now (test, no e-mail)** on the configuration page shows what would fail before
+  enabling it. When most targets fail in one run (80 % of at least 10), the probe assumes a
+  network problem on the GLPI side and leaves the alerts as they are.
+- On the inventory page, the status of an asset takes the probe into account (offline when it
+  does not answer) and shows the last answer.
+- Real-time metrics (CPU, memory, services, RAID / SMART, temperature) are not collected by the
+  GLPI Agent: use a monitoring system for those.
+
 ### Automatic actions
 
 | Name | Frequency | Job |
 |---|---|---|
 | `AssetwatchChanges` | 5 min | compare new inventories with the baseline (hardware / identity) |
 | `AssetwatchStatus` | 1 h | missing inventories, disk space, reminders, digests |
-| `AssetwatchPurge` | 1 day | remove closed alerts and digests older than 180 days |
+| `AssetwatchPurge` | 1 day | remove closed alerts and digests older than 180 days, disk trend samples older than 60 days |
+| `AssetwatchProbe` (2.5) | 5 min | liveness probe (does nothing until enabled in the configuration) |
 
 GLPI has no "inventory finished" hook, so hardware and identity changes are
 detected by `AssetwatchChanges` within 5 minutes of the inventory. Inventories are
@@ -258,10 +288,10 @@ imported in a database transaction, so a half-imported inventory is never compar
 
 | Change | Created on install | Removed by Uninstall |
 |---|---|---|
-| Tables `glpi_plugin_assetwatch_alerts`, `_snapshots`, `_digests`, `_uplinks` (2.3) | yes | dropped |
+| Tables `glpi_plugin_assetwatch_alerts`, `_snapshots`, `_digests`, `_uplinks` (2.3), `_probes`, `_diskhistories` (2.5) | yes | dropped |
 | Config entries (context `plugin:assetwatch`) | defaults, never overwrites existing values | deleted |
 | Profile rights `plugin_assetwatch_alert`, `plugin_assetwatch_config` | granted to profiles that can update GLPI config | deleted |
-| 3 automatic actions | yes | deleted |
+| 4 automatic actions | yes | deleted |
 | 4 notifications + 2 templates (`Asset Watch - ...`) | only if missing (your edits are kept on upgrade) | deleted, with queued e-mails |
 | Default list columns | only if none defined | deleted |
 | "Asset Watch" dashboard (2.1) | only if missing | deleted, Asset Watch cards placed on other dashboards too |
@@ -299,6 +329,10 @@ python tools/i18n.py extract|compile|check   # translations
   host path mounted on `/var/www/glpi/plugins`. Note that the official image keeps
   GLPI's config, files and logs under `/var/glpi` (`GLPI_CONFIG_DIR`, `GLPI_VAR_DIR`,
   `GLPI_LOG_DIR`); check that this path is on a persistent volume.
+- **Liveness probe (2.5)**: the checks start from the GLPI host (in Docker: from the GLPI
+  container, through the Docker network). After a move, the new host must still reach the
+  machines on TCP 62354 and the configured ports, and be in the agents' `httpd-trust` for
+  "Report now". Test with "Probe once now" before enabling the probe again.
 - **Time zone**: thresholds use GLPI's time. Keep the container `TIMEZONE` and the
   database time zone consistent, otherwise "hours without inventory" shifts.
 - **Upgrading from 1.x (GLPI 10) to 2.x (GLPI 11)**: upgrade GLPI first, replace

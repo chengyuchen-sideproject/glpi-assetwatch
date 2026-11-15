@@ -29,6 +29,23 @@ class PluginAssetwatchAlert extends CommonDBTM implements DefaultSearchRequestIn
     public const TYPE_HARDWARE  = AlertText::TYPE_HARDWARE;
     public const TYPE_IDENTITY  = AlertText::TYPE_IDENTITY;
     public const TYPE_RACK      = AlertText::TYPE_RACK;
+    public const TYPE_UNREACHABLE    = AlertText::TYPE_UNREACHABLE;
+    public const TYPE_AGENT_DOWN     = AlertText::TYPE_AGENT_DOWN;
+    public const TYPE_REBOOT         = AlertText::TYPE_REBOOT;
+    public const TYPE_ANTIVIRUS      = AlertText::TYPE_ANTIVIRUS;
+    public const TYPE_AGENT_OUTDATED = AlertText::TYPE_AGENT_OUTDATED;
+    public const TYPE_DISK_FORECAST  = AlertText::TYPE_DISK_FORECAST;
+
+    /** Stateful alert types (open / remind / resolve); the others are one-shot events. */
+    public const CONDITION_TYPES = [
+        self::TYPE_NO_REPORT,
+        self::TYPE_DISK_LOW,
+        self::TYPE_UNREACHABLE,
+        self::TYPE_AGENT_DOWN,
+        self::TYPE_ANTIVIRUS,
+        self::TYPE_AGENT_OUTDATED,
+        self::TYPE_DISK_FORECAST,
+    ];
 
     public const STATUS_ACTIVE       = StatusTracker::STATUS_ACTIVE;
     public const STATUS_ACKNOWLEDGED = StatusTracker::STATUS_ACKNOWLEDGED;
@@ -110,6 +127,12 @@ class PluginAssetwatchAlert extends CommonDBTM implements DefaultSearchRequestIn
             self::TYPE_HARDWARE  => __('Hardware change', 'assetwatch'),
             self::TYPE_IDENTITY  => __('Identity change', 'assetwatch'),
             self::TYPE_RACK      => __('Rack placement change', 'assetwatch'),
+            self::TYPE_UNREACHABLE    => __('Not answering', 'assetwatch'),
+            self::TYPE_AGENT_DOWN     => __('Agent not answering', 'assetwatch'),
+            self::TYPE_REBOOT         => __('Unexpected reboot', 'assetwatch'),
+            self::TYPE_ANTIVIRUS      => __('Antivirus problem', 'assetwatch'),
+            self::TYPE_AGENT_OUTDATED => __('Outdated GLPI Agent', 'assetwatch'),
+            self::TYPE_DISK_FORECAST  => __('Disk filling up', 'assetwatch'),
         ];
     }
 
@@ -211,6 +234,45 @@ class PluginAssetwatchAlert extends CommonDBTM implements DefaultSearchRequestIn
                     sprintf('[%s] %s', self::directionLabel((string) ($content['action'] ?? '')), AlertText::arrow((string) ($content['old'] ?? ''), (string) ($content['new'] ?? ''))),
                     sprintf(__('Changed by: %s', 'assetwatch'), (string) ($content['user'] ?? '')),
                 ];
+            case self::TYPE_UNREACHABLE:
+            case self::TYPE_AGENT_DOWN:
+                return [
+                    $fields['alert_type'] === self::TYPE_UNREACHABLE
+                        ? __('Nothing answers: neither the GLPI Agent nor the checked TCP ports.', 'assetwatch')
+                        : __('The machine answers on TCP but its GLPI Agent does not (service stopped or port 62354 filtered).', 'assetwatch'),
+                    sprintf(__('Failing since %1$s (%2$d checks in a row)', 'assetwatch'), Html::convDateTime($content['since'] ?? null), (int) ($content['fail_count'] ?? 0)),
+                    sprintf(__('Last answer: %s', 'assetwatch'), !empty($content['last_ok']) ? Html::convDateTime($content['last_ok']) : '-'),
+                    sprintf(__('Checked: %s', 'assetwatch'), (string) ($content['checked'] ?? '')),
+                ];
+            case self::TYPE_REBOOT:
+                return [
+                    sprintf(__('Booted at %1$s (previous boot: %2$s)', 'assetwatch'), Html::convDateTime($content['last_boot'] ?? null), Html::convDateTime($content['previous_boot'] ?? null)),
+                ];
+            case self::TYPE_ANTIVIRUS:
+                $problems = [
+                    'disabled' => __('disabled', 'assetwatch'),
+                    'outdated' => __('signatures not up to date', 'assetwatch'),
+                    'expired'  => __('license expired', 'assetwatch'),
+                ];
+                return [
+                    sprintf('%s: %s', (string) ($content['name'] ?? '?'), implode(', ', array_map(static fn ($p): string => $problems[$p] ?? (string) $p, (array) ($content['problems'] ?? [])))),
+                    sprintf(__('Version %1$s, signatures %2$s', 'assetwatch'), ($content['version'] ?? '') ?: '-', ($content['signature'] ?? '') ?: '-'),
+                ];
+            case self::TYPE_AGENT_OUTDATED:
+                return [
+                    sprintf(__('GLPI Agent %1$s, minimum required: %2$s', 'assetwatch'), (string) ($content['version'] ?? '?'), (string) ($content['minimum'] ?? '?')),
+                ];
+            case self::TYPE_DISK_FORECAST:
+                return [
+                    sprintf(
+                        __('[%1$s] low disk space in about %2$d days: %3$s GB free, losing %4$s GB a day (threshold %5$s GB)', 'assetwatch'),
+                        $content['mountpoint'] ?? '?',
+                        (int) ($content['days'] ?? 0),
+                        number_format((float) ($content['free_gb'] ?? 0), 1),
+                        number_format((float) ($content['gb_per_day'] ?? 0), 1),
+                        number_format((float) ($content['threshold_gb'] ?? 0), 1)
+                    ),
+                ];
         }
         return [(string) ($fields['summary'] ?? '')];
     }
@@ -293,7 +355,7 @@ class PluginAssetwatchAlert extends CommonDBTM implements DefaultSearchRequestIn
             'FROM'  => self::getTable(),
             'WHERE' => [
                 'status'     => [self::STATUS_ACTIVE, self::STATUS_ACKNOWLEDGED],
-                'alert_type' => [self::TYPE_NO_REPORT, self::TYPE_DISK_LOW],
+                'alert_type' => self::CONDITION_TYPES,
             ],
             'ORDER' => 'id',
         ]), false);
@@ -654,8 +716,23 @@ class PluginAssetwatchAlert extends CommonDBTM implements DefaultSearchRequestIn
                 return ['description' => __('Asset Watch: check missing inventories and disk space', 'assetwatch')];
             case 'AssetwatchPurge':
                 return ['description' => __('Asset Watch: purge old history', 'assetwatch')];
+            case 'AssetwatchProbe':
+                return ['description' => __('Asset Watch: check that machines and agents answer (liveness probe)', 'assetwatch')];
         }
         return [];
+    }
+
+    /**
+     * @param CronTask $task
+     */
+    public static function cronAssetwatchProbe($task)
+    {
+        $summary = PluginAssetwatchProbe::run(false);
+        $task->addVolume((int) ($summary['total'] ?? 0));
+        if (!empty($summary['storm'])) {
+            $task->log(sprintf('Most targets did not answer (%d of %d): alerts left as they are, check the network of the GLPI host.', $summary['total'] - $summary['ok'], $summary['total']));
+        }
+        return !empty($summary['total']) ? 1 : 0;
     }
 
     /**

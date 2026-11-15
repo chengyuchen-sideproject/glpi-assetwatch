@@ -65,6 +65,7 @@ class PluginAssetwatchRepository
                 'glpi_computers.serial',
                 'glpi_computers.entities_id',
                 'glpi_computers.last_inventory_update',
+                'glpi_computers.last_boot',
                 "$snapshots.inventory_date AS snapshot_date",
                 "$snapshots.content AS snapshot_content",
             ],
@@ -291,6 +292,217 @@ class PluginAssetwatchRepository
             'ports'      => $ports,
             'ips'        => $ips,
         ];
+    }
+
+    // ------------------------------------------------------------------
+    // 2.5: probe, antivirus, agent versions, disk history
+    // ------------------------------------------------------------------
+
+    /**
+     * GLPI Agents attached to computers.
+     *
+     * @param int[]|null $computer_ids null = all
+     *
+     * @return array<int, array{agents_id: int, port: int, version: string, last_contact: string|null}> computer id => agent
+     */
+    public static function agentsByComputer(?array $computer_ids = null): array
+    {
+        /** @var DBmysql $DB */
+        global $DB;
+
+        $where = ['itemtype' => 'Computer', 'items_id' => ['>', 0]];
+        if ($computer_ids !== null) {
+            if ($computer_ids === []) {
+                return [];
+            }
+            $where['items_id'] = $computer_ids;
+        }
+        $result = [];
+        foreach ($DB->request([
+            'SELECT' => ['id', 'items_id', 'port', 'version', 'useragent', 'last_contact'],
+            'FROM'   => 'glpi_agents',
+            'WHERE'  => $where,
+            'ORDER'  => 'last_contact DESC',
+        ]) as $row) {
+            // Several agents for one computer (reinstall): the most recent contact wins.
+            $result[(int) $row['items_id']] ??= [
+                'agents_id'    => (int) $row['id'],
+                'port'         => (int) $row['port'] > 0 ? (int) $row['port'] : 62354,
+                // "version" is only filled when the agent sends it in its metadata; the user agent
+                // ("GLPI-Agent_v1.11") always carries it.
+                'version'      => (string) (($row['version'] ?? '') ?: \GlpiPlugin\Assetwatch\Core\HealthRules::normalizeVersion((string) ($row['useragent'] ?? ''))),
+                'last_contact' => $row['last_contact'] !== null ? (string) $row['last_contact'] : null,
+            ];
+        }
+        return $result;
+    }
+
+    /**
+     * IP addresses of assets (ports matching the excluded patterns, e.g. docker0, are skipped).
+     *
+     * @param int[]    $ids
+     * @param string[] $excluded_ports wildcard patterns
+     *
+     * @return array<int, string[]> asset id => addresses
+     */
+    public static function ipsByItem(string $itemtype, array $ids, array $excluded_ports): array
+    {
+        /** @var DBmysql $DB */
+        global $DB;
+
+        $result = [];
+        foreach (array_chunk(array_values(array_unique(array_map('intval', $ids))), 500) as $chunk) {
+            foreach ($DB->request([
+                'SELECT'     => ['glpi_ipaddresses.mainitems_id', 'glpi_ipaddresses.name AS ip', 'glpi_networkports.name AS port_name'],
+                'FROM'       => 'glpi_ipaddresses',
+                'INNER JOIN' => [
+                    'glpi_networknames' => ['ON' => [
+                        'glpi_ipaddresses'  => 'items_id',
+                        'glpi_networknames' => 'id',
+                        ['AND' => ['glpi_ipaddresses.itemtype' => 'NetworkName']],
+                    ]],
+                    'glpi_networkports' => ['ON' => [
+                        'glpi_networknames' => 'items_id',
+                        'glpi_networkports' => 'id',
+                        ['AND' => ['glpi_networknames.itemtype' => 'NetworkPort']],
+                    ]],
+                ],
+                'WHERE'      => [
+                    'glpi_ipaddresses.mainitemtype' => $itemtype,
+                    'glpi_ipaddresses.mainitems_id' => $chunk,
+                    'glpi_ipaddresses.is_deleted'   => 0,
+                    'glpi_networknames.is_deleted'  => 0,
+                    'glpi_networkports.is_deleted'  => 0,
+                ],
+                'ORDER'      => ['glpi_networkports.id', 'glpi_ipaddresses.id'],
+            ]) as $row) {
+                if (\GlpiPlugin\Assetwatch\Core\Wildcard::matchesAny((string) $row['port_name'], $excluded_ports)) {
+                    continue;
+                }
+                $result[(int) $row['mainitems_id']][] = (string) $row['ip'];
+            }
+        }
+        return $result;
+    }
+
+    /**
+     * Assets placed in a rack (not deleted, not templates), by type.
+     *
+     * @param string[] $itemtypes
+     *
+     * @return array<string, array<int, array<string, mixed>>> itemtype => id => row (id, name, entities_id, tech groups)
+     */
+    public static function rackedAssets(array $itemtypes): array
+    {
+        /** @var DBmysql $DB */
+        global $DB;
+
+        $ids = [];
+        foreach ($DB->request([
+            'SELECT' => ['itemtype', 'items_id'],
+            'FROM'   => 'glpi_items_racks',
+            'WHERE'  => ['itemtype' => $itemtypes],
+        ]) as $row) {
+            $ids[(string) $row['itemtype']][] = (int) $row['items_id'];
+        }
+        $result = [];
+        foreach ($ids as $itemtype => $list) {
+            if (!is_a($itemtype, CommonDBTM::class, true)) {
+                continue;
+            }
+            $table = $itemtype::getTable();
+            $where = ['id' => $list];
+            foreach (['is_deleted' => 0, 'is_template' => 0] as $field => $value) {
+                if ($DB->fieldExists($table, $field)) {
+                    $where[$field] = $value;
+                }
+            }
+            $rows = [];
+            foreach ($DB->request(['SELECT' => ['id', 'name', 'entities_id'], 'FROM' => $table, 'WHERE' => $where]) as $row) {
+                $rows[(int) $row['id']] = $row;
+            }
+            $result[$itemtype] = self::withTechGroups($itemtype, $rows);
+        }
+        return $result;
+    }
+
+    /**
+     * Antivirus rows of computers (as reported by the agent).
+     *
+     * @param int[] $computer_ids
+     *
+     * @return array<int, array<int, array<string, mixed>>> computer id => antiviruses
+     */
+    public static function antivirusesByComputer(array $computer_ids): array
+    {
+        /** @var DBmysql $DB */
+        global $DB;
+
+        $result = [];
+        foreach (array_chunk($computer_ids, 500) as $chunk) {
+            foreach ($DB->request([
+                'SELECT' => ['items_id', 'name', 'is_active', 'is_uptodate', 'date_expiration', 'antivirus_version', 'signature_version'],
+                'FROM'   => 'glpi_itemantiviruses',
+                'WHERE'  => ['itemtype' => 'Computer', 'items_id' => $chunk, 'is_deleted' => 0],
+            ]) as $row) {
+                $result[(int) $row['items_id']][] = $row;
+            }
+        }
+        return $result;
+    }
+
+    /**
+     * Record the free space of each partition at an inventory (disk trend).
+     *
+     * @param array<string, array<string, mixed>> $measures DiskRule::measureAll() result
+     */
+    public static function recordDiskSamples(int $computers_id, array $measures, string $date): void
+    {
+        /** @var DBmysql $DB */
+        global $DB;
+
+        $table = PluginAssetwatchInstall::DISK_HISTORY_TABLE;
+        foreach ($measures as $mount => $m) {
+            $exists = countElementsInTable($table, ['computers_id' => $computers_id, 'mountpoint' => (string) $mount, 'date' => $date]);
+            if ($exists === 0) {
+                $DB->insert($table, [
+                    'computers_id' => $computers_id,
+                    'mountpoint'   => (string) $mount,
+                    'total_mb'     => (int) round((float) $m['total_gb'] * 1024),
+                    'free_mb'      => (int) round((float) $m['free_gb'] * 1024),
+                    'date'         => $date,
+                ]);
+            }
+        }
+    }
+
+    /**
+     * Free space samples since a date.
+     *
+     * @param int[] $computer_ids
+     *
+     * @return array<int, array<string, list<array{date: string, free_gb: float}>>> computer id => mount => samples
+     */
+    public static function diskSamples(array $computer_ids, string $since): array
+    {
+        /** @var DBmysql $DB */
+        global $DB;
+
+        $result = [];
+        foreach (array_chunk($computer_ids, 500) as $chunk) {
+            foreach ($DB->request([
+                'SELECT' => ['computers_id', 'mountpoint', 'free_mb', 'date'],
+                'FROM'   => PluginAssetwatchInstall::DISK_HISTORY_TABLE,
+                'WHERE'  => ['computers_id' => $chunk, 'date' => ['>=', $since]],
+                'ORDER'  => 'date',
+            ]) as $row) {
+                $result[(int) $row['computers_id']][(string) $row['mountpoint']][] = [
+                    'date'    => (string) $row['date'],
+                    'free_gb' => round((int) $row['free_mb'] / 1024, 2),
+                ];
+            }
+        }
+        return $result;
     }
 
     /**
