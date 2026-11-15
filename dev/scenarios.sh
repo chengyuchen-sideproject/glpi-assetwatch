@@ -271,6 +271,7 @@ expect "topology: GLPI port + typed (with and without port)" "aw-aud01=aw-sw01 G
 expect "topology: link between switches, both ends" "aw-sw01 Te1/1 - aw-sw02 Te1/48" "$(tt "';'.join(d['peers'])")"
 expect "topology: computer without connection" "aw-ghost" "$(tt "','.join(d['unconnected'])")"
 expect "topology of room B: switch of room A drawn as outside" "aw-sw02,aw-sw01 1" "$(glpi_action topology-json "room:$ROOM_B" | py -c "import json,sys; d=json.load(sys.stdin); print(','.join(d['switches']), d['counts']['switches'])")"
+expect "rack QR code opens the inventory page of the rack" "/plugins/assetwatch/front/audit.php?scope=room%3A$ROOM_A&rack=$RA1" "$(glpi_action rack-path "$RA1")"
 if py "$DEV_DIR/ui_smoke.py" --topology "$ROOM_A" "$ROOM_B" "$DC_ID" "$SW1" "$SW2" "$GHOST" "$RA1"; then
     PASS=$((PASS + 1))
 else

@@ -157,11 +157,11 @@ msgid "Asset alert"
 msgid_plural "Asset alerts"
 msgstr[0] "資產告警"
 
-#: inc/audit.class.php:36 templates/config.html.twig:101 templates/roommap.html.twig:73
+#: inc/audit.class.php:36 templates/config.html.twig:101 templates/roommap.html.twig:74
 msgid "Datacenter inventory"
 msgstr "機房盤點"
 
-#: inc/audit.class.php:108 templates/_scope_select.html.twig:24 templates/audit.html.twig:102
+#: inc/audit.class.php:108 templates/_scope_select.html.twig:24 templates/audit.html.twig:108
 msgid "Computers in no rack and without location"
 msgstr "沒上機櫃也沒設位置的電腦"
 
@@ -197,7 +197,7 @@ msgstr "電腦放在機櫃上，但 GLPI Agent 從未回報：沒裝 Agent，或
 msgid "No inventory for %d days or more: check that it is still in the rack."
 msgstr "超過 %d 天沒有回報：請確認它還在機櫃上。"
 
-#: inc/audit.class.php:604 inc/audit.class.php:640 inc/audit.class.php:729
+#: inc/audit.class.php:604 inc/audit.class.php:688 inc/audit.class.php:783
 msgid "Not in a rack"
 msgstr "沒上機櫃"
 
@@ -229,71 +229,71 @@ msgstr "IP 不在機房網段內"
 msgid "None of its addresses is in the networks configured for the room (Setup > Plugins > Asset Watch)."
 msgstr "它的 IP 都不在這個機房設定的網段內（設定 > 外掛 > Asset Watch）。"
 
-#: inc/audit.class.php:690
+#: inc/audit.class.php:740
 msgid "No datacenter"
 msgstr "未指定資料中心"
 
-#: inc/audit.class.php:708
+#: inc/audit.class.php:762
 msgid "Front"
 msgstr "正面"
 
-#: inc/audit.class.php:708 templates/racklabel.html.twig:93
+#: inc/audit.class.php:762 templates/racklabel.html.twig:95
 msgid "Rear"
 msgstr "背面"
 
-#: inc/audit.class.php:713
+#: inc/audit.class.php:767
 msgid "Datacenter"
 msgstr "資料中心"
 
-#: inc/audit.class.php:713 inc/roomfilter.class.php:27 templates/_scope_select.html.twig:9
+#: inc/audit.class.php:767 inc/roomfilter.class.php:27 templates/_scope_select.html.twig:9
 msgid "Server room"
 msgstr "機房"
 
-#: inc/audit.class.php:713
+#: inc/audit.class.php:767
 msgid "Rack"
 msgstr "機櫃"
 
-#: inc/audit.class.php:713
+#: inc/audit.class.php:767
 msgid "Rack unit (U)"
 msgstr "U 位"
 
-#: inc/audit.class.php:713
+#: inc/audit.class.php:767
 msgid "Side"
 msgstr "面向"
 
-#: inc/audit.class.php:714 inc/topology.class.php:466
+#: inc/audit.class.php:768 inc/topology.class.php:475
 msgid "Asset type"
 msgstr "設備類型"
 
-#: inc/audit.class.php:714
+#: inc/audit.class.php:768
 msgid "Manufacturer"
 msgstr "製造商"
 
-#: inc/audit.class.php:714 templates/audit.html.twig:124
+#: inc/audit.class.php:768 templates/audit.html.twig:133
 msgid "Model"
 msgstr "型號"
 
-#: inc/audit.class.php:715 templates/audit.html.twig:125
+#: inc/audit.class.php:769 templates/audit.html.twig:134
 msgid "IP addresses"
 msgstr "IP 位址"
 
-#: inc/audit.class.php:715 templates/audit.html.twig:126
+#: inc/audit.class.php:769 templates/audit.html.twig:135
 msgid "Last inventory"
 msgstr "最後回報"
 
-#: inc/audit.class.php:716 templates/audit.html.twig:73
+#: inc/audit.class.php:770 templates/audit.html.twig:79
 msgid "Discrepancies"
 msgstr "落差"
 
-#: inc/audit.class.php:716 templates/audit.html.twig:127
+#: inc/audit.class.php:770 templates/audit.html.twig:136
 msgid "Technical groups"
 msgstr "技術群組"
 
-#: inc/audit.class.php:716 templates/audit.html.twig:128
+#: inc/audit.class.php:770 templates/audit.html.twig:137
 msgid "Hardware"
 msgstr "硬體"
 
-#: inc/audit.class.php:722 templates/audit.html.twig:83
+#: inc/audit.class.php:776 templates/audit.html.twig:89
 msgid "%d other asset(s) with this serial"
 msgstr "另有 %d 筆相同序號"
 
@@ -452,7 +452,15 @@ msgstr "開始時間"
 msgid "List of alerts"
 msgstr "告警清單"
 
-#: inc/racklabel.class.php:33 templates/audit.html.twig:114
+#: inc/racklabel.class.php:263 templates/racklabel.html.twig:71
+msgid "In no server room"
+msgstr "未指定機房"
+
+#: inc/racklabel.class.php:274
+msgid "Rack QR stickers"
+msgstr "機櫃 QR 貼紙"
+
+#: inc/racklabel.class.php:37 templates/audit.html.twig:121
 msgid "Rack label"
 msgid_plural "Rack labels"
 msgstr[0] "機櫃標籤"
@@ -482,35 +490,35 @@ msgstr "%d 台"
 msgid "Outside the selection"
 msgstr "不在目前範圍內"
 
-#: inc/topology.class.php:465 templates/topology.html.twig:138
+#: inc/topology.class.php:474 templates/topology.html.twig:138
 msgid "Network device"
 msgstr "網路設備"
 
-#: inc/topology.class.php:465 inc/topology.class.php:466 templates/audit.html.twig:73 templates/topology.html.twig:113 templates/topology.html.twig:246 templates/topology.html.twig:276
+#: inc/topology.class.php:474 inc/topology.class.php:475 templates/audit.html.twig:79 templates/topology.html.twig:113 templates/topology.html.twig:246 templates/topology.html.twig:276
 msgid "Location"
 msgstr "位置"
 
-#: inc/topology.class.php:465 templates/topology.html.twig:139 templates/topology.html.twig:139 templates/topology.html.twig:246
+#: inc/topology.class.php:474 templates/topology.html.twig:139 templates/topology.html.twig:139 templates/topology.html.twig:246
 msgid "Switch port"
 msgstr "Switch port"
 
-#: inc/topology.class.php:466 templates/topology.html.twig:246 templates/topology.html.twig:276
+#: inc/topology.class.php:475 templates/topology.html.twig:246 templates/topology.html.twig:276
 msgid "Device"
 msgstr "設備"
 
-#: inc/topology.class.php:466 templates/topology.html.twig:140 templates/topology.html.twig:140 templates/topology.html.twig:247
+#: inc/topology.class.php:475 templates/topology.html.twig:140 templates/topology.html.twig:140 templates/topology.html.twig:247
 msgid "Device port"
 msgstr "設備網卡"
 
-#: inc/topology.class.php:467 templates/topology.html.twig:247
+#: inc/topology.class.php:476 templates/topology.html.twig:247
 msgid "Source"
 msgstr "來源"
 
-#: inc/topology.class.php:503 templates/topology.html.twig:40 templates/topology.html.twig:184
+#: inc/topology.class.php:512 templates/topology.html.twig:40 templates/topology.html.twig:184
 msgid "GLPI ports"
 msgstr "GLPI 連接埠"
 
-#: inc/topology.class.php:504 templates/topology.html.twig:40 templates/topology.html.twig:185
+#: inc/topology.class.php:513 templates/topology.html.twig:40 templates/topology.html.twig:185
 msgid "Typed by hand"
 msgstr "手動填寫"
 
@@ -563,7 +571,7 @@ msgstr "恢復提醒"
 msgid "Export CSV"
 msgstr "匯出 CSV"
 
-#: templates/audit.html.twig:28 templates/racklabel.html.twig:54 templates/topology.html.twig:57
+#: templates/audit.html.twig:28 templates/racklabel.html.twig:56 templates/racksticker.html.twig:36 templates/topology.html.twig:57
 msgid "Print"
 msgstr "列印"
 
@@ -575,29 +583,45 @@ msgstr "還沒有機房。請到「資產 > 資料中心」建立資料中心與
 msgid "Pick a server room to list its assets rack by rack, with their status and what to check on site."
 msgstr "選一個機房，依機櫃列出所有設備、目前狀態，以及到現場要確認的項目。"
 
+#: templates/audit.html.twig:46
+msgid "Only the rack %s (what GLPI records for it, with the live status)."
+msgstr "只顯示機櫃 %s（GLPI 記錄的內容與即時狀態）。"
+
 #: templates/audit.html.twig:47
+msgid "Whole server room"
+msgstr "顯示整個機房"
+
+#: templates/audit.html.twig:53
 msgid "Assets"
 msgstr "設備"
 
-#: templates/audit.html.twig:57 templates/roommap.html.twig:42 templates/roommap.html.twig:61 templates/roommap.html.twig:65
+#: templates/audit.html.twig:63 templates/roommap.html.twig:42 templates/roommap.html.twig:61 templates/roommap.html.twig:65
 msgid "To check on site"
 msgstr "到現場要確認"
 
-#: templates/audit.html.twig:68
+#: templates/audit.html.twig:74
 msgid "Nothing to check: GLPI matches what the agents report."
 msgstr "沒有需要確認的：GLPI 的資料和 Agent 回報一致。"
 
-#: templates/audit.html.twig:91
+#: templates/audit.html.twig:97
 msgid "\"Probably removed\" = no inventory for %d days or more."
 msgstr "「疑似已下架」＝超過 %d 天沒有回報。"
 
-#: templates/audit.html.twig:92
+#: templates/audit.html.twig:98
 msgid "Thresholds and room networks"
 msgstr "門檻與機房網段設定"
 
-#: templates/audit.html.twig:99
+#: templates/audit.html.twig:105
+msgid "No asset recorded in this rack."
+msgstr "這個機櫃在 GLPI 沒有記錄任何設備。"
+
+#: templates/audit.html.twig:105
 msgid "No asset found: no rack of this room holds an asset, and no reporting computer has the location of the room."
 msgstr "找不到設備：這個機房的機櫃上沒有設備，也沒有回報中的電腦位置設在這個機房。"
+
+#: templates/audit.html.twig:122
+msgid "QR sticker"
+msgstr "QR 貼紙"
 
 #: templates/config.html.twig:11
 msgid "Health check"
@@ -727,45 +751,53 @@ msgstr "目前的比對基準"
 msgid "No baseline yet: it is recorded after the next inventory."
 msgstr "尚無比對基準：下次回報後會自動建立。"
 
-#: templates/racklabel.html.twig:56
+#: templates/racklabel.html.twig:58
 msgid "Print on A4, scale 100% (\"Default\" margins), with background graphics."
 msgstr "請用 A4 列印、縮放 100%（邊界「預設」），並勾選「背景圖形」。"
 
-#: templates/racklabel.html.twig:57
+#: templates/racklabel.html.twig:59 templates/racksticker.html.twig:39
 msgid "QR codes unavailable: the bacon/bacon-qr-code library of GLPI was not found."
 msgstr "無法產生 QR code：找不到 GLPI 內建的 bacon/bacon-qr-code 函式庫。"
 
-#: templates/racklabel.html.twig:61
+#: templates/racklabel.html.twig:63 templates/racksticker.html.twig:43
 msgid "No rack to print."
 msgstr "沒有可列印的機櫃。"
 
-#: templates/racklabel.html.twig:69
-msgid "In no server room"
-msgstr "未指定機房"
-
-#: templates/racklabel.html.twig:69 templates/roommap.html.twig:42 templates/roommap.html.twig:61
+#: templates/racklabel.html.twig:71 templates/roommap.html.twig:42 templates/roommap.html.twig:61
 msgid "%d asset(s)"
 msgstr "%d 台設備"
 
-#: templates/racklabel.html.twig:69
+#: templates/racklabel.html.twig:71
 msgid "Used: %1$d / %2$d U"
 msgstr "已用 %1$d / %2$d U"
 
-#: templates/racklabel.html.twig:70
+#: templates/racklabel.html.twig:72
 msgid "Printed on %s from GLPI. Scan a code to open the asset."
 msgstr "%s 從 GLPI 列印。掃 QR code 可開啟該設備。"
 
-#: templates/racklabel.html.twig:75
+#: templates/racklabel.html.twig:74
+msgid "Live content"
+msgstr "即時內容"
+
+#: templates/racklabel.html.twig:77
 msgid "Front view"
 msgstr "正面"
 
-#: templates/racklabel.html.twig:96
+#: templates/racklabel.html.twig:98
 msgid "Beyond the rack height: check its position in GLPI."
 msgstr "超出機櫃高度：請確認 GLPI 裡的 U 位。"
 
-#: templates/racklabel.html.twig:102
+#: templates/racklabel.html.twig:104
 msgid "Dashed frame = mounted at the rear. Heights come from the asset models (1U when not set)."
 msgstr "虛線框＝裝在背面。高度取自設備型號（沒設定的算 1U）。"
+
+#: templates/racksticker.html.twig:38
+msgid "A4, scale 100%. Cut along the dashed lines."
+msgstr "A4、縮放 100% 列印，沿虛線剪下。"
+
+#: templates/racksticker.html.twig:51
+msgid "Scan: live content of this rack in GLPI"
+msgstr "掃描查看此機櫃在 GLPI 的即時內容"
 
 #: templates/roommap.html.twig:44
 msgid "Power: no maximum set on the rack"
@@ -791,27 +823,31 @@ msgstr "耗電"
 msgid "Rack labels"
 msgstr "機櫃標籤"
 
-#: templates/roommap.html.twig:79
+#: templates/roommap.html.twig:71
+msgid "QR stickers"
+msgstr "QR 貼紙"
+
+#: templates/roommap.html.twig:80
 msgid "No rack in this room."
 msgstr "這個機房沒有機櫃。"
 
-#: templates/roommap.html.twig:91
+#: templates/roommap.html.twig:92
 msgid "Not placed on the room grid (set the position of the rack in the room):"
 msgstr "沒有放在機房平面上（請設定機櫃在機房裡的位置）："
 
-#: templates/roommap.html.twig:96
+#: templates/roommap.html.twig:97
 msgid "assets to check on site in the rack"
 msgstr "機櫃裡要到現場確認的設備台數"
 
-#: templates/roommap.html.twig:98
+#: templates/roommap.html.twig:99
 msgid "rack units used (asset height from its model, 1U when not set)"
 msgstr "已使用的 U 數（設備高度取自型號，沒設定的算 1U）"
 
-#: templates/roommap.html.twig:100
+#: templates/roommap.html.twig:101
 msgid "power consumption of the models vs the maximum power of the rack (— = no maximum set)"
 msgstr "型號耗電加總 ÷ 機櫃最大功率（— ＝機櫃沒設最大功率）"
 
-#: templates/roommap.html.twig:102
+#: templates/roommap.html.twig:103
 msgid "%d computer(s) of this room are in no rack (not on the map)."
 msgstr "這個機房有 %d 台電腦沒上機櫃（不在平面圖上）。"
 

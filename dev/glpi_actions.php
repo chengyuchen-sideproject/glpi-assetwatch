@@ -238,6 +238,13 @@ switch ($action) {
         ], JSON_UNESCAPED_UNICODE), "\n";
         exit(0);
 
+    case 'rack-path':
+        // php glpi_actions.php rack-path <rack id> -> link encoded in the QR code of the rack
+        $rack = new Rack();
+        $rack->getFromDB((int) ($argv[2] ?? 0));
+        echo PluginAssetwatchAudit::rackPath($rack->getID(), (int) ($rack->fields['dcrooms_id'] ?? 0)), "\n";
+        exit(0);
+
     case 'roommap-json':
         // php glpi_actions.php roommap-json <room id> -> metrics per rack
         $room_id = (int) ($argv[2] ?? 0);

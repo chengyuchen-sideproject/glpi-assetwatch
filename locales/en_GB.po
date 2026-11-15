@@ -158,11 +158,11 @@ msgid_plural "Asset alerts"
 msgstr[0] ""
 msgstr[1] ""
 
-#: inc/audit.class.php:36 templates/config.html.twig:101 templates/roommap.html.twig:73
+#: inc/audit.class.php:36 templates/config.html.twig:101 templates/roommap.html.twig:74
 msgid "Datacenter inventory"
 msgstr ""
 
-#: inc/audit.class.php:108 templates/_scope_select.html.twig:24 templates/audit.html.twig:102
+#: inc/audit.class.php:108 templates/_scope_select.html.twig:24 templates/audit.html.twig:108
 msgid "Computers in no rack and without location"
 msgstr ""
 
@@ -198,7 +198,7 @@ msgstr ""
 msgid "No inventory for %d days or more: check that it is still in the rack."
 msgstr ""
 
-#: inc/audit.class.php:604 inc/audit.class.php:640 inc/audit.class.php:729
+#: inc/audit.class.php:604 inc/audit.class.php:688 inc/audit.class.php:783
 msgid "Not in a rack"
 msgstr ""
 
@@ -230,71 +230,71 @@ msgstr ""
 msgid "None of its addresses is in the networks configured for the room (Setup > Plugins > Asset Watch)."
 msgstr ""
 
-#: inc/audit.class.php:690
+#: inc/audit.class.php:740
 msgid "No datacenter"
 msgstr ""
 
-#: inc/audit.class.php:708
+#: inc/audit.class.php:762
 msgid "Front"
 msgstr ""
 
-#: inc/audit.class.php:708 templates/racklabel.html.twig:93
+#: inc/audit.class.php:762 templates/racklabel.html.twig:95
 msgid "Rear"
 msgstr ""
 
-#: inc/audit.class.php:713
+#: inc/audit.class.php:767
 msgid "Datacenter"
 msgstr ""
 
-#: inc/audit.class.php:713 inc/roomfilter.class.php:27 templates/_scope_select.html.twig:9
+#: inc/audit.class.php:767 inc/roomfilter.class.php:27 templates/_scope_select.html.twig:9
 msgid "Server room"
 msgstr ""
 
-#: inc/audit.class.php:713
+#: inc/audit.class.php:767
 msgid "Rack"
 msgstr ""
 
-#: inc/audit.class.php:713
+#: inc/audit.class.php:767
 msgid "Rack unit (U)"
 msgstr ""
 
-#: inc/audit.class.php:713
+#: inc/audit.class.php:767
 msgid "Side"
 msgstr ""
 
-#: inc/audit.class.php:714 inc/topology.class.php:466
+#: inc/audit.class.php:768 inc/topology.class.php:475
 msgid "Asset type"
 msgstr ""
 
-#: inc/audit.class.php:714
+#: inc/audit.class.php:768
 msgid "Manufacturer"
 msgstr ""
 
-#: inc/audit.class.php:714 templates/audit.html.twig:124
+#: inc/audit.class.php:768 templates/audit.html.twig:133
 msgid "Model"
 msgstr ""
 
-#: inc/audit.class.php:715 templates/audit.html.twig:125
+#: inc/audit.class.php:769 templates/audit.html.twig:134
 msgid "IP addresses"
 msgstr ""
 
-#: inc/audit.class.php:715 templates/audit.html.twig:126
+#: inc/audit.class.php:769 templates/audit.html.twig:135
 msgid "Last inventory"
 msgstr ""
 
-#: inc/audit.class.php:716 templates/audit.html.twig:73
+#: inc/audit.class.php:770 templates/audit.html.twig:79
 msgid "Discrepancies"
 msgstr ""
 
-#: inc/audit.class.php:716 templates/audit.html.twig:127
+#: inc/audit.class.php:770 templates/audit.html.twig:136
 msgid "Technical groups"
 msgstr ""
 
-#: inc/audit.class.php:716 templates/audit.html.twig:128
+#: inc/audit.class.php:770 templates/audit.html.twig:137
 msgid "Hardware"
 msgstr ""
 
-#: inc/audit.class.php:722 templates/audit.html.twig:83
+#: inc/audit.class.php:776 templates/audit.html.twig:89
 msgid "%d other asset(s) with this serial"
 msgstr ""
 
@@ -456,7 +456,15 @@ msgstr ""
 msgid "List of alerts"
 msgstr ""
 
-#: inc/racklabel.class.php:33 templates/audit.html.twig:114
+#: inc/racklabel.class.php:263 templates/racklabel.html.twig:71
+msgid "In no server room"
+msgstr ""
+
+#: inc/racklabel.class.php:274
+msgid "Rack QR stickers"
+msgstr ""
+
+#: inc/racklabel.class.php:37 templates/audit.html.twig:121
 msgid "Rack label"
 msgid_plural "Rack labels"
 msgstr[0] ""
@@ -488,35 +496,35 @@ msgstr ""
 msgid "Outside the selection"
 msgstr ""
 
-#: inc/topology.class.php:465 templates/topology.html.twig:138
+#: inc/topology.class.php:474 templates/topology.html.twig:138
 msgid "Network device"
 msgstr ""
 
-#: inc/topology.class.php:465 inc/topology.class.php:466 templates/audit.html.twig:73 templates/topology.html.twig:113 templates/topology.html.twig:246 templates/topology.html.twig:276
+#: inc/topology.class.php:474 inc/topology.class.php:475 templates/audit.html.twig:79 templates/topology.html.twig:113 templates/topology.html.twig:246 templates/topology.html.twig:276
 msgid "Location"
 msgstr ""
 
-#: inc/topology.class.php:465 templates/topology.html.twig:139 templates/topology.html.twig:139 templates/topology.html.twig:246
+#: inc/topology.class.php:474 templates/topology.html.twig:139 templates/topology.html.twig:139 templates/topology.html.twig:246
 msgid "Switch port"
 msgstr ""
 
-#: inc/topology.class.php:466 templates/topology.html.twig:246 templates/topology.html.twig:276
+#: inc/topology.class.php:475 templates/topology.html.twig:246 templates/topology.html.twig:276
 msgid "Device"
 msgstr ""
 
-#: inc/topology.class.php:466 templates/topology.html.twig:140 templates/topology.html.twig:140 templates/topology.html.twig:247
+#: inc/topology.class.php:475 templates/topology.html.twig:140 templates/topology.html.twig:140 templates/topology.html.twig:247
 msgid "Device port"
 msgstr ""
 
-#: inc/topology.class.php:467 templates/topology.html.twig:247
+#: inc/topology.class.php:476 templates/topology.html.twig:247
 msgid "Source"
 msgstr ""
 
-#: inc/topology.class.php:503 templates/topology.html.twig:40 templates/topology.html.twig:184
+#: inc/topology.class.php:512 templates/topology.html.twig:40 templates/topology.html.twig:184
 msgid "GLPI ports"
 msgstr ""
 
-#: inc/topology.class.php:504 templates/topology.html.twig:40 templates/topology.html.twig:185
+#: inc/topology.class.php:513 templates/topology.html.twig:40 templates/topology.html.twig:185
 msgid "Typed by hand"
 msgstr ""
 
@@ -570,7 +578,7 @@ msgstr ""
 msgid "Export CSV"
 msgstr ""
 
-#: templates/audit.html.twig:28 templates/racklabel.html.twig:54 templates/topology.html.twig:57
+#: templates/audit.html.twig:28 templates/racklabel.html.twig:56 templates/racksticker.html.twig:36 templates/topology.html.twig:57
 msgid "Print"
 msgstr ""
 
@@ -582,28 +590,44 @@ msgstr ""
 msgid "Pick a server room to list its assets rack by rack, with their status and what to check on site."
 msgstr ""
 
+#: templates/audit.html.twig:46
+msgid "Only the rack %s (what GLPI records for it, with the live status)."
+msgstr ""
+
 #: templates/audit.html.twig:47
+msgid "Whole server room"
+msgstr ""
+
+#: templates/audit.html.twig:53
 msgid "Assets"
 msgstr ""
 
-#: templates/audit.html.twig:57 templates/roommap.html.twig:42 templates/roommap.html.twig:61 templates/roommap.html.twig:65
+#: templates/audit.html.twig:63 templates/roommap.html.twig:42 templates/roommap.html.twig:61 templates/roommap.html.twig:65
 msgid "To check on site"
 msgstr ""
 
-#: templates/audit.html.twig:68
+#: templates/audit.html.twig:74
 msgid "Nothing to check: GLPI matches what the agents report."
 msgstr ""
 
-#: templates/audit.html.twig:91
+#: templates/audit.html.twig:97
 msgid "\"Probably removed\" = no inventory for %d days or more."
 msgstr ""
 
-#: templates/audit.html.twig:92
+#: templates/audit.html.twig:98
 msgid "Thresholds and room networks"
 msgstr ""
 
-#: templates/audit.html.twig:99
+#: templates/audit.html.twig:105
+msgid "No asset recorded in this rack."
+msgstr ""
+
+#: templates/audit.html.twig:105
 msgid "No asset found: no rack of this room holds an asset, and no reporting computer has the location of the room."
+msgstr ""
+
+#: templates/audit.html.twig:122
+msgid "QR sticker"
 msgstr ""
 
 #: templates/config.html.twig:11
@@ -734,44 +758,52 @@ msgstr ""
 msgid "No baseline yet: it is recorded after the next inventory."
 msgstr ""
 
-#: templates/racklabel.html.twig:56
+#: templates/racklabel.html.twig:58
 msgid "Print on A4, scale 100% (\"Default\" margins), with background graphics."
 msgstr ""
 
-#: templates/racklabel.html.twig:57
+#: templates/racklabel.html.twig:59 templates/racksticker.html.twig:39
 msgid "QR codes unavailable: the bacon/bacon-qr-code library of GLPI was not found."
 msgstr ""
 
-#: templates/racklabel.html.twig:61
+#: templates/racklabel.html.twig:63 templates/racksticker.html.twig:43
 msgid "No rack to print."
 msgstr ""
 
-#: templates/racklabel.html.twig:69
-msgid "In no server room"
-msgstr ""
-
-#: templates/racklabel.html.twig:69 templates/roommap.html.twig:42 templates/roommap.html.twig:61
+#: templates/racklabel.html.twig:71 templates/roommap.html.twig:42 templates/roommap.html.twig:61
 msgid "%d asset(s)"
 msgstr ""
 
-#: templates/racklabel.html.twig:69
+#: templates/racklabel.html.twig:71
 msgid "Used: %1$d / %2$d U"
 msgstr ""
 
-#: templates/racklabel.html.twig:70
+#: templates/racklabel.html.twig:72
 msgid "Printed on %s from GLPI. Scan a code to open the asset."
 msgstr ""
 
-#: templates/racklabel.html.twig:75
+#: templates/racklabel.html.twig:74
+msgid "Live content"
+msgstr ""
+
+#: templates/racklabel.html.twig:77
 msgid "Front view"
 msgstr ""
 
-#: templates/racklabel.html.twig:96
+#: templates/racklabel.html.twig:98
 msgid "Beyond the rack height: check its position in GLPI."
 msgstr ""
 
-#: templates/racklabel.html.twig:102
+#: templates/racklabel.html.twig:104
 msgid "Dashed frame = mounted at the rear. Heights come from the asset models (1U when not set)."
+msgstr ""
+
+#: templates/racksticker.html.twig:38
+msgid "A4, scale 100%. Cut along the dashed lines."
+msgstr ""
+
+#: templates/racksticker.html.twig:51
+msgid "Scan: live content of this rack in GLPI"
 msgstr ""
 
 #: templates/roommap.html.twig:44
@@ -798,27 +830,31 @@ msgstr ""
 msgid "Rack labels"
 msgstr ""
 
-#: templates/roommap.html.twig:79
+#: templates/roommap.html.twig:71
+msgid "QR stickers"
+msgstr ""
+
+#: templates/roommap.html.twig:80
 msgid "No rack in this room."
 msgstr ""
 
-#: templates/roommap.html.twig:91
+#: templates/roommap.html.twig:92
 msgid "Not placed on the room grid (set the position of the rack in the room):"
 msgstr ""
 
-#: templates/roommap.html.twig:96
+#: templates/roommap.html.twig:97
 msgid "assets to check on site in the rack"
 msgstr ""
 
-#: templates/roommap.html.twig:98
+#: templates/roommap.html.twig:99
 msgid "rack units used (asset height from its model, 1U when not set)"
 msgstr ""
 
-#: templates/roommap.html.twig:100
+#: templates/roommap.html.twig:101
 msgid "power consumption of the models vs the maximum power of the rack (— = no maximum set)"
 msgstr ""
 
-#: templates/roommap.html.twig:102
+#: templates/roommap.html.twig:103
 msgid "%d computer(s) of this room are in no rack (not on the map)."
 msgstr ""
 

@@ -83,7 +83,7 @@
             <b>{{ __('Port used twice', 'assetwatch') }}</b> — {{ __('several assets are recorded on the same port of a network device; one of the entries is probably out of date.', 'assetwatch') }}
             <ul class="mb-0">
                {% for c in data.graph.port_conflicts %}
-                  <li>{{ nodes[c.switch].name }} {{ c.port }}: {{ c.keys|map(k => nodes[k].name)|join(', ') }}</li>
+                  <li>{{ nodes[c.switch].name }} {{ c.port }}: {{ c.keys|map(k => nodes[k].name)|sort|join(', ') }}</li>
                {% endfor %}
             </ul>
          </div>

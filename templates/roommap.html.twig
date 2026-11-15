@@ -68,6 +68,7 @@
          </div>
          {% if map.cells is not empty %}
             <a class="btn btn-sm btn-outline-secondary" href="{{ map.labels_url }}" target="_blank"><i class="ti ti-qrcode me-1"></i>{{ __('Rack labels', 'assetwatch') }}</a>
+            <a class="btn btn-sm btn-outline-secondary" href="{{ map.stickers_url }}" target="_blank"><i class="ti ti-sticker me-1"></i>{{ __('QR stickers', 'assetwatch') }}</a>
          {% endif %}
          {% if not in_audit %}
             <a class="btn btn-sm btn-outline-secondary" href="{{ map.audit_url }}"><i class="ti ti-clipboard-list me-1"></i>{{ __('Datacenter inventory', 'assetwatch') }}</a>

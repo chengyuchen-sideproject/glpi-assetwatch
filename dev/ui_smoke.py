@@ -119,6 +119,24 @@ def topology_checks(c, room_a, room_b, dc_id, sw1, sw2, ghost, ra1):
     status, html = c.get(f"{plugin}/racklabel.php?rack=999999")
     page_ok("rack label of an unknown rack", status, html, "No rack to print.")
 
+    # Rack QR code target: the inventory page of one rack; QR stickers.
+    status, html = c.get(f"{plugin}/audit.php?scope=room:{room_a}&rack={ra1}")
+    page_ok("inventory page of one rack (QR code target)", status, html, "Only the rack AW-RA1")
+    check("one rack: its assets only, no floor map",
+          all(n in html for n in ("aw-sw01", "aw-ghost", "aw-aud01", "aw-pdu01")) and "aw-aud02" not in html and 'id="aw-map-' not in html,
+          "unexpected content")
+    check("one rack: CSV keeps the rack", f"&amp;rack={ra1}&amp;export=csv" in html, "CSV link")
+    status, csv = c.get(f"{plugin}/audit.php?scope=room:{room_a}&rack={ra1}&export=csv")
+    check("one rack CSV: header + 4 assets", status == 200 and len(csv.strip().splitlines()) == 5, f"{len(csv.strip().splitlines())} lines")
+    status, html = c.get(f"{plugin}/audit.php?scope=room:{room_b}&rack={ra1}")
+    page_ok("rack of another room is ignored (whole room shown)", status, html, "AW-RB1")
+    check("rack of another room: no single-rack banner", "Only the rack" not in html, "banner shown")
+    status, html = c.get(f"{plugin}/racklabel.php?room={room_a}&format=sticker")
+    page_ok("QR stickers of room A", status, html, "Scan: live content of this rack in GLPI")
+    check("stickers: one QR per rack", html.count("<svg") == 1 and "AW-RA1" in html and "AW DC / AW Room A" in html, f"{html.count('<svg')} svg")
+    status, html = c.get(f"{plugin}/audit.php?scope=room:{room_a}")
+    check("sticker buttons (rack card + floor map)", f"format=sticker&amp;rack={ra1}" in html and f"room={room_a}&amp;format=sticker" in html, "buttons missing")
+
     # Topology drawing
     status, html = c.get(f"{plugin}/topology.php")
     page_ok("topology page (no room chosen)", status, html, f'value="dc:{dc_id}"')

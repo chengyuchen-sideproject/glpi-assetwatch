@@ -21,7 +21,7 @@ GLPI 11 一台設備可以有**多個技術群組**：每個群組各自收到�
 這個外掛只**讀取** GLPI 的資料，不會連到你的機器，也不會修改任何資產（2.3 手動填寫的接線存在外掛自己的資料表，並在設備的歷史紀錄留一行）。
 
 2.2 起另有**機房盤點**頁（依機櫃列出每個機房的設備、即時狀態與到現場要確認的落差）和儀表板的**「機房」篩選**。
-2.3 起再加上每個機房的**平面圖**、可列印的**機櫃 QR code 標籤**，以及**網路架構圖**（哪台設備接到哪台 switch）。
+2.3 起再加上每個機房的**平面圖**、可列印的**機櫃 QR code 標籤**，以及**網路架構圖**（哪台設備接到哪台 switch）。2.4 起有**機櫃 QR 貼紙**，掃了看該機櫃的即時內容。
 
 ## 需求與相容版本
 
@@ -66,12 +66,12 @@ docker exec -u www-data glpi_app php bin/console plugin:activate assetwatch
 
 這個外掛是純 PHP，不需要 Composer、沒有 `vendor/`，也不從 CDN 載入任何東西；翻譯檔（`.mo`）已經編譯好放在裡面。安裝和執行都不需要連網，只要把檔案帶進去就好。
 
-1. 在能上網的電腦，從 [Releases](https://github.com/chengyuchen-sideproject/glpi-assetwatch/releases) 頁面下載 `assetwatch-<版本>.tar.gz` 和對應的 `.sha256` 檔。也可以從原始碼自己打包：`git archive --format=tar.gz --prefix=assetwatch/ -o assetwatch-2.3.0.tar.gz v2.3.0`。不建議用 GitHub 的「Download ZIP」，解開後資料夾會叫 `glpi-assetwatch-main`，必須自己改名。
+1. 在能上網的電腦，從 [Releases](https://github.com/chengyuchen-sideproject/glpi-assetwatch/releases) 頁面下載 `assetwatch-<版本>.tar.gz` 和對應的 `.sha256` 檔。也可以從原始碼自己打包：`git archive --format=tar.gz --prefix=assetwatch/ -o assetwatch-2.4.0.tar.gz v2.4.0`。不建議用 GitHub 的「Download ZIP」，解開後資料夾會叫 `glpi-assetwatch-main`，必須自己改名。
 2. 把兩個檔案帶到 GLPI 主機上，執行：
 
    ```bash
-   sha256sum -c assetwatch-2.3.0.tar.gz.sha256
-   tar -xzf assetwatch-2.3.0.tar.gz -C ./glpi_plugins     # 會建立 glpi_plugins/assetwatch
+   sha256sum -c assetwatch-2.4.0.tar.gz.sha256
+   tar -xzf assetwatch-2.4.0.tar.gz -C ./glpi_plugins     # 會建立 glpi_plugins/assetwatch
    chmod -R a+rX ./glpi_plugins/assetwatch                # 讓容器內的 www-data（uid 33）讀得到
    ```
 
@@ -144,7 +144,8 @@ docker exec -u www-data glpi_app php bin/console plugin:activate assetwatch
 ### 機房平面圖與機櫃標籤（2.3 起）
 
 - **機房平面圖**：從上往下看機房，機櫃畫在它在機房裡的位置（GLPI 機櫃欄位「Position in room」，中文介面顯示為「机房中的位置」），依**到現場要確認的台數**（預設）、**U 佔用率**或**耗電**（型號耗電加總 ÷ 機櫃最大功率）上色。顯示在盤點頁每個機房的機櫃清單上方，以及每個機房的「**機房平面圖**」分頁。點機櫃會跳到它的清單。平面圖只畫到最後一個機櫃再多一格；沒設位置的機櫃列在圖下方。門檻：U 佔用 70% / 90%、耗電 60% / 80%、待確認 1 / 3 台。
-- **機櫃標籤**（每個機櫃和平面圖上的按鈕）：**每個機櫃一張 A4**，左邊是 U 位正面圖，右邊每台設備一個 **QR code**（掃了開 GLPI 的資產頁），可以貼在機櫃門上。用 100% 縮放並勾選「背景圖形」列印。設備高度取自型號的「Required units」（中文介面顯示為「需要數量」；沒設定的算 1U）。QR code 用的是 GLPI 網址（設定 > 一般 >「應用程式的URL」），手機要連得到；QR code 由 GLPI 內建的 `bacon/bacon-qr-code` 函式庫產生，不用另外裝套件。
+- **機櫃標籤**（每個機櫃和平面圖上的按鈕）：**每個機櫃一張 A4**，左邊是 U 位正面圖，右邊每台設備一個 **QR code**（掃了開 GLPI 的資產頁），右上角是機櫃的 QR code。用 100% 縮放並勾選「背景圖形」列印。設備高度取自型號的「Required units」（中文介面顯示為「需要數量」；沒設定的算 1U）。QR code 用的是 GLPI 網址（設定 > 一般 >「應用程式的URL」），手機要連得到；QR code 由 GLPI 內建的 `bacon/bacon-qr-code` 函式庫產生，不用另外裝套件。
+- **機櫃 QR 貼紙**（2.4 起；每個機櫃和平面圖上的按鈕）：只印機櫃的 QR code，一張 A4 9 張（63 × 88 mm），貼在機櫃門上。機櫃 QR 會打開**盤點頁的該機櫃**（`audit.php?scope=room:<機房>&rack=<機櫃>`）：GLPI 記錄的櫃內設備、即時狀態與落差，按「顯示整個機房」回到整個機房。QR 裡只有機櫃 ID，機器怎麼搬都**不用重印貼紙**；印出來的 A4 標籤（名稱、U 位）才需要重印。沒登入時掃描，登入後會回到該機櫃。畫面是 GLPI 的紀錄：搬了機器卻沒改 GLPI 就看不出來，這部分靠「到現場要確認」清單抓。
 
 ### 網路架構圖（2.3 起）
 

@@ -18,8 +18,12 @@ if (!defined('GLPI_ROOT')) {
 }
 
 /**
- * Printable rack label, one A4 page per rack: front view of the rack unit by unit, and a QR
- * code per asset that opens the asset in GLPI (to stick on the rack door).
+ * Printable rack labels:
+ *  - "label" (default): one A4 page per rack, front view of the rack unit by unit, a QR code per
+ *    asset that opens the asset in GLPI, and a QR code of the rack;
+ *  - "sticker": only the QR code of each rack, several per A4 sheet, to stick on the rack door.
+ * The QR code of a rack opens the datacenter inventory page of that rack (live content and
+ * status), so the sticker never needs reprinting when assets move.
  *
  * The QR codes are drawn with bacon/bacon-qr-code, which GLPI ships for two-factor
  * authentication; without it the page still prints, with the asset numbers only.
@@ -33,8 +37,11 @@ class PluginAssetwatchRackLabel extends CommonGLPI
         return _n('Rack label', 'Rack labels', $nb, 'assetwatch');
     }
 
+    public const FORMAT_LABEL   = 'label';
+    public const FORMAT_STICKER = 'sticker';
+
     /**
-     * @param array{rack?: int, room?: int} $params
+     * @param array{rack?: int, room?: int, format?: string} $params
      */
     public static function getUrl(array $params): string
     {
@@ -198,7 +205,7 @@ class PluginAssetwatchRackLabel extends CommonGLPI
                 'blocks'       => $blocks,
                 'assets'       => $assets,
                 'qr_mm'        => $qr_mm,
-                'rack_qr'      => self::qrSvg(self::absoluteUrl(Rack::getFormURLWithID($id, false))),
+                'rack_qr'      => self::qrSvg(self::absoluteUrl(PluginAssetwatchAudit::rackPath($id, $room !== null ? $room['id'] : 0))),
             ];
         }
         return $pages;
@@ -233,8 +240,43 @@ class PluginAssetwatchRackLabel extends CommonGLPI
         return $items;
     }
 
-    public static function render(array $rack_ids): string
+    /**
+     * Rack stickers: name, room and QR code of each rack.
+     *
+     * @param int[] $rack_ids
+     *
+     * @return list<array<string, mixed>>
+     */
+    public static function stickers(array $rack_ids): array
     {
+        $rooms = PluginAssetwatchAudit::rooms();
+        $stickers = [];
+        foreach ($rack_ids as $id) {
+            $rack = new Rack();
+            if (!$rack->getFromDB($id) || !$rack->can($id, READ)) {
+                continue;
+            }
+            $room = $rooms[(int) $rack->fields['dcrooms_id']] ?? null;
+            $stickers[] = [
+                'name'       => (string) $rack->fields['name'],
+                'datacenter' => $room['datacenter'] ?? '',
+                'room'       => $room['name'] ?? __('In no server room', 'assetwatch'),
+                'qr'         => self::qrSvg(self::absoluteUrl(PluginAssetwatchAudit::rackPath($id, $room !== null ? $room['id'] : 0)), 300),
+            ];
+        }
+        return $stickers;
+    }
+
+    public static function render(array $rack_ids, string $format = self::FORMAT_LABEL): string
+    {
+        if ($format === self::FORMAT_STICKER) {
+            return TemplateRenderer::getInstance()->render('@assetwatch/racksticker.html.twig', [
+                'title'    => __('Rack QR stickers', 'assetwatch'),
+                'stickers' => self::stickers($rack_ids),
+                'has_qr'   => class_exists(Writer::class),
+                'lang'     => str_replace('_', '-', (string) ($_SESSION['glpilanguage'] ?? 'en_GB')),
+            ]);
+        }
         return TemplateRenderer::getInstance()->render('@assetwatch/racklabel.html.twig', [
             'title'   => self::getTypeName(Session::getPluralNumber()),
             'pages'   => self::pages($rack_ids),

@@ -623,11 +623,59 @@ class PluginAssetwatchAudit extends CommonGLPI
     // Output
     // ------------------------------------------------------------------
 
-    public static function showPage(string $scope_key): void
+    /**
+     * Rack of the scope chosen with ?rack=<id> (QR code on the rack), or null.
+     *
+     * @param array{room_ids: int[]}|null $scope
+     *
+     * @return array{id: int, name: string}|null
+     */
+    public static function resolveRack(?array $scope, int $rack_id): ?array
+    {
+        if ($scope === null || $rack_id <= 0) {
+            return null;
+        }
+        $rack = new Rack();
+        if (!$rack->getFromDB($rack_id) || !$rack->can($rack_id, READ) || !in_array((int) $rack->fields['dcrooms_id'], $scope['room_ids'], true)) {
+            return null;
+        }
+        return ['id' => $rack_id, 'name' => (string) $rack->fields['name']];
+    }
+
+    /**
+     * Keep the assets of one rack (counts recomputed).
+     *
+     * @param array<string, mixed> $result result of collect()
+     *
+     * @return array<string, mixed>
+     */
+    public static function onlyRack(array $result, int $rack_id): array
+    {
+        return RoomAudit::summarize(array_filter($result['items'], static fn (array $i): bool => $i['racked'] && $i['racks_id'] === $rack_id));
+    }
+
+    /**
+     * Inventory page of one rack, without the GLPI root (for QR codes: see PluginAssetwatchRackLabel::absoluteUrl).
+     * A rack in no server room has no inventory page: its GLPI form is used.
+     */
+    public static function rackPath(int $rack_id, int $room_id): string
+    {
+        if ($room_id <= 0) {
+            return Rack::getFormURLWithID($rack_id, false);
+        }
+        return self::getSearchURL(false) . '?' . http_build_query(['scope' => 'room:' . $room_id, 'rack' => $rack_id]);
+    }
+
+    public static function showPage(string $scope_key, int $rack_id = 0): void
     {
         $rooms = self::rooms();
         $scope = self::resolveScope($scope_key, $rooms);
         $result = $scope !== null ? self::collect($scope['room_ids'], $scope['unassigned']) : null;
+        $rack = self::resolveRack($scope, $rack_id);
+        $all_items = $result['items'] ?? [];
+        if ($rack !== null) {
+            $result = self::onlyRack($result, $rack['id']);
+        }
 
         // Group rows: room -> rack (racked) / unracked
         $groups = [];
@@ -644,11 +692,11 @@ class PluginAssetwatchAudit extends CommonGLPI
             }
         }
 
-        // Floor map of each room of the scope (racks without assets included).
+        // Floor map of each room of the scope (racks without assets included); not for one rack.
         $maps = [];
-        if ($result !== null) {
+        if ($result !== null && $rack === null) {
             foreach ($scope['room_ids'] as $room_id) {
-                $map = PluginAssetwatchRoomMap::build($room_id, $result['items']);
+                $map = PluginAssetwatchRoomMap::build($room_id, $all_items);
                 if ($map !== null && $map['cells'] !== []) {
                     $maps[$room_id] = $map;
                 }
@@ -662,7 +710,9 @@ class PluginAssetwatchAudit extends CommonGLPI
             'maps'           => $maps,
             'topology_url'   => PluginAssetwatchTopology::getSearchURL(),
             'label_url'      => PluginAssetwatchRackLabel::getUrl([]) . 'rack=',
+            'sticker_url'    => PluginAssetwatchRackLabel::getUrl(['format' => 'sticker']) . '&rack=',
             'scope'          => $scope,
+            'only_rack'      => $rack,
             'scope_key'      => $scope_key,
             'result'         => $result,
             'groups'         => $groups,
@@ -696,13 +746,17 @@ class PluginAssetwatchAudit extends CommonGLPI
     /**
      * CSV for spreadsheets (UTF-8 with BOM so that Excel shows Chinese correctly).
      */
-    public static function csv(string $scope_key): ?string
+    public static function csv(string $scope_key, int $rack_id = 0): ?string
     {
         $scope = self::resolveScope($scope_key, self::rooms());
         if ($scope === null) {
             return null;
         }
         $result = self::collect($scope['room_ids'], $scope['unassigned']);
+        $rack = self::resolveRack($scope, $rack_id);
+        if ($rack !== null) {
+            $result = self::onlyRack($result, $rack['id']);
+        }
         $status_labels = self::statusLabels();
         $issue_labels = self::issueLabels();
         $orientations = [Rack::FRONT => __('Front', 'assetwatch'), Rack::REAR => __('Rear', 'assetwatch')];

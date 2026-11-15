@@ -1,0 +1,57 @@
+{#
+ # Asset Watch - GLPI plugin
+ # Rack QR stickers: 9 per A4 sheet (63 x 88 mm, dashed cut lines). The QR code opens the
+ # datacenter inventory page of the rack (live content), so a sticker never needs reprinting.
+ # @license GPL-3.0-or-later
+ #}
+<!DOCTYPE html>
+<html lang="{{ lang }}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ title }}</title>
+<style>
+   @page { size: A4 portrait; margin: 10mm; }
+   * { box-sizing: border-box; }
+   body { margin: 0; font-family: "Segoe UI", "Noto Sans TC", "Microsoft JhengHei", "PingFang TC", Arial, sans-serif; color: #000; background: #e9ecef; }
+   .toolbar { position: sticky; top: 0; padding: 8px 12px; background: #1e293b; color: #fff; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; font-size: 14px; z-index: 1; }
+   .toolbar button { font-size: 14px; padding: 4px 14px; cursor: pointer; }
+   .warn { color: #ffb4b4; }
+   .sheet { width: 190mm; margin: 8mm auto; background: #fff; box-shadow: 0 0 4px rgba(0,0,0,.3); display: grid; grid-template-columns: repeat(3, 63mm); grid-auto-rows: 88mm; justify-content: center; }
+   .sticker { border: .3mm dashed #999; padding: 4mm 3mm 3mm; display: flex; flex-direction: column; align-items: center; text-align: center; break-inside: avoid; overflow: hidden; }
+   .sticker .name { font-size: 7mm; font-weight: 700; line-height: 1.1; overflow-wrap: anywhere; max-height: 16mm; overflow: hidden; }
+   .sticker .room { font-size: 3.2mm; color: #333; margin-top: 1mm; line-height: 1.2; max-height: 8mm; overflow: hidden; }
+   .sticker .qr { width: 46mm; height: 46mm; margin: auto 0 1.5mm; }
+   .sticker .qr svg { width: 100%; height: 100%; display: block; }
+   .sticker .cap { font-size: 2.8mm; color: #333; }
+   @media print {
+      body { background: #fff; }
+      .toolbar { display: none; }
+      .sheet { margin: 0; box-shadow: none; }
+   }
+</style>
+</head>
+<body>
+<div class="toolbar">
+   <button type="button" onclick="window.print()">{{ __('Print', 'assetwatch') }}</button>
+   <span>{{ title }} · {{ stickers|length }}</span>
+   <span>{{ __('A4, scale 100%. Cut along the dashed lines.', 'assetwatch') }}</span>
+   {% if not has_qr %}<span class="warn">{{ __('QR codes unavailable: the bacon/bacon-qr-code library of GLPI was not found.', 'assetwatch') }}</span>{% endif %}
+</div>
+
+{% if stickers is empty %}
+   <div class="sheet" style="display: block; padding: 10mm">{{ __('No rack to print.', 'assetwatch') }}</div>
+{% else %}
+   <div class="sheet">
+      {% for s in stickers %}
+         <div class="sticker">
+            <div class="name">{{ s.name }}</div>
+            <div class="room">{{ s.datacenter ? s.datacenter ~ ' / ' : '' }}{{ s.room }}</div>
+            {% if s.qr %}<div class="qr">{{ s.qr|raw }}</div>{% endif %}
+            <div class="cap">{{ __('Scan: live content of this rack in GLPI', 'assetwatch') }}</div>
+         </div>
+      {% endfor %}
+   </div>
+{% endif %}
+</body>
+</html>

@@ -22,6 +22,8 @@
    .head .sub { font-size: 3.2mm; color: #333; margin-top: 1mm; }
    .head .rackqr { width: 18mm; height: 18mm; }
    .head .rackqr svg { width: 100%; height: 100%; }
+   .head .rackqr-box { text-align: center; }
+   .head .rackqr-cap { font-size: 2.3mm; color: #333; }
    .body { display: flex; gap: 4mm; align-items: flex-start; }
    .rack { width: 68mm; flex: none; border: .5mm solid #000; }
    .blk { display: flex; border-top: .2mm solid #999; font-size: 2.7mm; line-height: 1.05; overflow: hidden; }
@@ -69,7 +71,7 @@
          <div class="sub">{{ page.room ?: __('In no server room', 'assetwatch') }} · {{ page.number_units }}U · {{ __('%d asset(s)', 'assetwatch')|format(page.assets|length) }} · {{ __('Used: %1$d / %2$d U', 'assetwatch')|format(page.used_units, page.number_units) }}</div>
          <div class="sub">{{ __('Printed on %s from GLPI. Scan a code to open the asset.', 'assetwatch')|format(printed) }}</div>
       </div>
-      {% if page.rack_qr %}<div class="rackqr">{{ page.rack_qr|raw }}</div>{% endif %}
+      {% if page.rack_qr %}<div class="rackqr-box"><div class="rackqr">{{ page.rack_qr|raw }}</div><div class="rackqr-cap">{{ __('Live content', 'assetwatch') }}</div></div>{% endif %}
    </div>
    <div class="body">
       <div class="rack" aria-label="{{ __('Front view', 'assetwatch') }}">

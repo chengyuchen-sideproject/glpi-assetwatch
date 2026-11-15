@@ -146,5 +146,11 @@ final class RoomAuditTest extends TestCase
         $this->assertSame('ok', $result['items'][0]['status']);
         $this->assertSame([], $result['items'][0]['issues']);
         $this->assertSame(['subnet_mismatch' => '10.1.2.3'], $result['items'][1]['issues']);
+
+        // Keeping part of the items (one rack): counts follow, items renumbered.
+        $part = RoomAudit::summarize([3 => $result['items'][2], 4 => $result['items'][4]]);
+        $this->assertSame(['ok' => 0, 'disk_low' => 0, 'offline' => 0, 'retired' => 1, 'no_agent' => 1], $part['status_counts']);
+        $this->assertSame(1, $part['items_with_issues']);
+        $this->assertSame([0, 1], array_keys($part['items']));
     }
 }

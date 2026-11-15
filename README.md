@@ -29,7 +29,8 @@ with a line in the asset history).
 Since 2.2 it also gives a **datacenter inventory** page (each server room rack by rack, with
 live status and the discrepancies to check on site) and a **Server room** dashboard filter.
 Since 2.3: a **floor map** of each server room, printable **rack labels with QR codes**, and a
-**network topology** page (which device is plugged into which switch).
+**network topology** page (which device is plugged into which switch). Since 2.4: **rack QR
+stickers** that open the live inventory of the rack.
 
 ## Requirements / compatibility
 
@@ -85,13 +86,13 @@ to install or run it, so it only has to be carried in.
    its `.sha256` file from the
    [Releases](https://github.com/chengyuchen-sideproject/glpi-assetwatch/releases) page
    (or build it from a checkout:
-   `git archive --format=tar.gz --prefix=assetwatch/ -o assetwatch-2.3.0.tar.gz v2.3.0`).
+   `git archive --format=tar.gz --prefix=assetwatch/ -o assetwatch-2.4.0.tar.gz v2.4.0`).
    Avoid GitHub's "Download ZIP": its folder is named `glpi-assetwatch-main` and must be renamed.
 2. Copy both files to the GLPI host, then:
 
    ```bash
-   sha256sum -c assetwatch-2.3.0.tar.gz.sha256
-   tar -xzf assetwatch-2.3.0.tar.gz -C ./glpi_plugins     # creates glpi_plugins/assetwatch
+   sha256sum -c assetwatch-2.4.0.tar.gz.sha256
+   tar -xzf assetwatch-2.4.0.tar.gz -C ./glpi_plugins     # creates glpi_plugins/assetwatch
    chmod -R a+rX ./glpi_plugins/assetwatch                # readable by www-data (uid 33)
    ```
 
@@ -209,11 +210,19 @@ location":
   cell after the last rack; racks without a position are listed under the map.
   Thresholds: space 70 % / 90 %, power 60 % / 80 %, assets to check 1 / 3.
 - **Rack labels** (button on each rack and on the floor map): one **A4 page per rack** with
-  the front view unit by unit and a **QR code per asset** that opens the asset in GLPI, to
-  stick on the rack door. Print at 100 % with background graphics. Heights come from the
+  the front view unit by unit, a **QR code per asset** that opens the asset in GLPI, and the
+  QR code of the rack. Print at 100 % with background graphics. Heights come from the
   asset models (*Required units*; 1U when not set). The QR codes need the GLPI URL
   (Setup > General > *URL of the application*) to be reachable from the phone; they are
   drawn with the `bacon/bacon-qr-code` library that GLPI ships (no extra package).
+- **Rack QR stickers** (since 2.4; button on each rack and on the floor map): only the QR code
+  of each rack, 9 per A4 sheet (63 x 88 mm), to stick on the rack door. The QR code of a rack
+  opens the **inventory page of that rack** (`audit.php?scope=room:<room>&rack=<rack>`): what
+  GLPI records in the rack, with the live status and the discrepancies; "Whole server room"
+  goes back to the room. The code holds the rack id only, so a sticker **never needs
+  reprinting** when assets move; the printed A4 label (names, units) does. The link survives
+  the GLPI login. The page shows what GLPI records: assets moved without updating GLPI are
+  not seen, which the *To check on site* list helps to catch.
 
 ### Network topology (since 2.3)
 

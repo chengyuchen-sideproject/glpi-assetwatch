@@ -144,6 +144,7 @@ class PluginAssetwatchRoomMap extends CommonGLPI
             'room_url'   => DCRoom::getFormURLWithID($room_id),
             'audit_url'  => $audit_url,
             'labels_url' => PluginAssetwatchRackLabel::getUrl(['room' => $room_id]),
+            'stickers_url' => PluginAssetwatchRackLabel::getUrl(['room' => $room_id, 'format' => PluginAssetwatchRackLabel::FORMAT_STICKER]),
             'cols'       => $cols,
             'rows'       => $grid['rows'],
             'cell'       => $cols <= 12 ? 72 : ($cols <= 20 ? 56 : 44),

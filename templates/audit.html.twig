@@ -7,6 +7,7 @@
 <style>
    .aw-audit .aw-u { width: 4rem; text-align: right; }
    .aw-audit td { vertical-align: top; }
+   .aw-audit .table thead th { white-space: nowrap; }
    .aw-audit .aw-ips { font-family: var(--tblr-font-monospace, monospace); font-size: .85em; }
    .aw-audit .table { margin-bottom: 0; }
    @media print {
@@ -24,7 +25,7 @@
       {% if result is not null %}
          <div class="ms-auto d-flex gap-2 aw-noprint">
             <a class="btn btn-outline-secondary" href="{{ topology_url }}?scope={{ scope_key|url_encode }}"><i class="ti ti-topology-star-3 me-1"></i>{{ __('Network topology', 'assetwatch') }}</a>
-            <a class="btn btn-outline-secondary" href="{{ self_url }}?scope={{ scope_key|url_encode }}&amp;export=csv"><i class="ti ti-file-spreadsheet me-1"></i>{{ __('Export CSV', 'assetwatch') }}</a>
+            <a class="btn btn-outline-secondary" href="{{ self_url }}?scope={{ scope_key|url_encode }}{{ only_rack ? '&rack=' ~ only_rack.id : '' }}&amp;export=csv"><i class="ti ti-file-spreadsheet me-1"></i>{{ __('Export CSV', 'assetwatch') }}</a>
             <button type="button" class="btn btn-outline-secondary" onclick="window.print()"><i class="ti ti-printer me-1"></i>{{ __('Print', 'assetwatch') }}</button>
          </div>
       {% endif %}
@@ -40,7 +41,13 @@
          {{ __('Pick a server room to list its assets rack by rack, with their status and what to check on site.', 'assetwatch') }}
       </div>
    {% else %}
-      <h3 class="mb-2">{{ scope.label }} <small class="text-muted">{{ 'now'|date('Y-m-d H:i') }}</small></h3>
+      <h3 class="mb-2">{{ scope.label }}{% if only_rack %} / <i class="ti ti-server"></i> {{ only_rack.name }}{% endif %} <small class="text-muted">{{ 'now'|date('Y-m-d H:i') }}</small></h3>
+      {% if only_rack %}
+         <div class="alert alert-info d-flex flex-wrap align-items-center gap-2 py-2 aw-noprint">
+            <span>{{ __('Only the rack %s (what GLPI records for it, with the live status).', 'assetwatch')|format(only_rack.name) }}</span>
+            <a class="btn btn-sm btn-outline-primary ms-auto" href="{{ self_url }}?scope={{ scope_key|url_encode }}">{{ __('Whole server room', 'assetwatch') }}</a>
+         </div>
+      {% endif %}
 
       {# Summary #}
       <div class="d-flex flex-wrap gap-2 mb-3">
@@ -96,7 +103,7 @@
 
       {# Racks #}
       {% if groups is empty %}
-         <div class="alert alert-warning">{{ __('No asset found: no rack of this room holds an asset, and no reporting computer has the location of the room.', 'assetwatch') }}</div>
+         <div class="alert alert-warning">{{ only_rack ? __('No asset recorded in this rack.', 'assetwatch') : __('No asset found: no rack of this room holds an asset, and no reporting computer has the location of the room.', 'assetwatch') }}</div>
       {% endif %}
       {% for room in groups %}
          {% if groups|length > 1 or scope.unassigned %}<h3 class="mt-4 mb-2">{{ room.label ?: __('Computers in no rack and without location', 'assetwatch') }}</h3>{% endif %}
@@ -111,7 +118,10 @@
                      <span class="badge bg-secondary-lt ms-1">{{ rack.items|length }}</span>
                   </h3>
                   {% if rack.racked %}
-                     <a class="btn btn-sm btn-outline-secondary ms-auto aw-noprint" href="{{ label_url }}{{ rack.id }}" target="_blank"><i class="ti ti-qrcode me-1"></i>{{ __('Rack label', 'assetwatch') }}</a>
+                     <div class="ms-auto d-flex gap-1 aw-noprint">
+                        <a class="btn btn-sm btn-outline-secondary" href="{{ label_url }}{{ rack.id }}" target="_blank"><i class="ti ti-qrcode me-1"></i>{{ __('Rack label', 'assetwatch') }}</a>
+                        <a class="btn btn-sm btn-outline-secondary" href="{{ sticker_url }}{{ rack.id }}" target="_blank"><i class="ti ti-sticker me-1"></i>{{ __('QR sticker', 'assetwatch') }}</a>
+                     </div>
                   {% endif %}
                </div>
                <div class="table-responsive">

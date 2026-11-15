@@ -12,7 +12,7 @@
 
 use Glpi\Plugin\Hooks;
 
-define('PLUGIN_ASSETWATCH_VERSION', '2.3.0');
+define('PLUGIN_ASSETWATCH_VERSION', '2.4.0');
 // Supported GLPI range: 11.0.x (GLPI 10 is handled by the 1.x branch).
 define('PLUGIN_ASSETWATCH_MIN_GLPI', '11.0.0');
 define('PLUGIN_ASSETWATCH_MAX_GLPI', '11.0.99');

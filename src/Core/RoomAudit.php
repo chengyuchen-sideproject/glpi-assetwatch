@@ -143,24 +143,37 @@ final class RoomAudit
      */
     public static function evaluate(array $items, array $networks_by_room, DateTimeImmutable $now, Settings $settings): array
     {
+        foreach ($items as $i => $item) {
+            $status = self::status($item, $now, $settings);
+            $items[$i]['status'] = $status;
+            $items[$i]['issues'] = self::issues($item, $status, $networks_by_room[(int) ($item['dcrooms_id'] ?? 0)] ?? []);
+        }
+        return self::summarize($items);
+    }
+
+    /**
+     * Counts of evaluated items (also used after keeping only part of them, e.g. one rack).
+     *
+     * @param array<int, array<string, mixed>> $items with "status" and "issues"
+     *
+     * @return array{items: array<int, array<string, mixed>>, status_counts: array<string, int>, issue_counts: array<string, int>, items_with_issues: int}
+     */
+    public static function summarize(array $items): array
+    {
         $status_counts = array_fill_keys(self::STATUSES, 0);
         $issue_counts = array_fill_keys(self::ISSUES, 0);
         $with_issues = 0;
-        foreach ($items as $i => $item) {
-            $status = self::status($item, $now, $settings);
-            $issues = self::issues($item, $status, $networks_by_room[(int) ($item['dcrooms_id'] ?? 0)] ?? []);
-            $items[$i]['status'] = $status;
-            $items[$i]['issues'] = $issues;
-            $status_counts[$status]++;
-            foreach (array_keys($issues) as $issue) {
+        foreach ($items as $item) {
+            $status_counts[$item['status']]++;
+            foreach (array_keys($item['issues']) as $issue) {
                 $issue_counts[$issue]++;
             }
-            if ($issues !== []) {
+            if ($item['issues'] !== []) {
                 $with_issues++;
             }
         }
         return [
-            'items'             => $items,
+            'items'             => array_values($items),
             'status_counts'     => $status_counts,
             'issue_counts'      => $issue_counts,
             'items_with_issues' => $with_issues,
