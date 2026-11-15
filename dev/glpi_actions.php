@@ -153,8 +153,105 @@ switch ($action) {
         echo json_encode(['rooms' => $rooms, 'racks' => $racks, 'location' => $location->getID()]), "\n";
         exit(0);
 
+    case 'topology-fixture':
+        // After audit-fixture (2.3): floor map, rack labels and network topology.
+        //   model "AW-2U" (2U, 500 W) on aw-aud01; AW-RA1 max power 1000 W
+        //   aw-sw02 (switch) in AW-RB1 U40
+        //   GLPI ports: aw-sw01 Gi1/0/10 <-> aw-aud01 (agent port), aw-sw01 Te1/1 <-> aw-sw02 Te1/48
+        //   typed by hand: aw-aud03 -> aw-sw02 Gi1/0/5, aw-aud02 -> aw-sw01 (no port); aw-ghost: none
+        $model = new ComputerModel();
+        if (!$model->getFromDBByCrit(['name' => 'AW-2U'])) {
+            $model->add(['name' => 'AW-2U', 'required_units' => 2, 'power_consumption' => 500]);
+        }
+        $aud01 = find_computer('aw-aud01');
+        $aud01->update(['id' => $aud01->getID(), 'computermodels_id' => $model->getID()]);
+        $ra1 = new Rack();
+        $ra1->getFromDBByCrit(['name' => 'AW-RA1']);
+        $ra1->update(['id' => $ra1->getID(), 'max_power' => 1000]);
+        $rb1 = new Rack();
+        $rb1->getFromDBByCrit(['name' => 'AW-RB1']);
+        $sw1 = new NetworkEquipment();
+        $sw1->getFromDBByCrit(['name' => 'aw-sw01']);
+        $sw2 = new NetworkEquipment();
+        if (!$sw2->getFromDBByCrit(['name' => 'aw-sw02'])) {
+            $sw2->add(['name' => 'aw-sw02', 'entities_id' => 0, 'serial' => 'SW-0002']);
+        }
+        $relation = new Item_Rack();
+        if (!$relation->getFromDBByCrit(['itemtype' => 'NetworkEquipment', 'items_id' => $sw2->getID()])) {
+            $relation->add(['itemtype' => 'NetworkEquipment', 'items_id' => $sw2->getID(), 'racks_id' => $rb1->getID(), 'position' => 40, 'orientation' => Rack::FRONT]);
+        }
+        $port = static function (CommonDBTM $item, string $name, int $number): int {
+            $p = new NetworkPort();
+            if ($p->getFromDBByCrit(['itemtype' => $item::class, 'items_id' => $item->getID(), 'name' => $name])) {
+                return $p->getID();
+            }
+            return (int) $p->add([
+                'itemtype' => $item::class, 'items_id' => $item->getID(), 'entities_id' => 0,
+                'name' => $name, 'logical_number' => $number, 'instantiation_type' => 'NetworkPortEthernet',
+            ]);
+        };
+        $connect = static function (int $a, int $b): void {
+            $link = new NetworkPort_NetworkPort();
+            if (!$link->getFromDBByCrit(['OR' => [['networkports_id_1' => $a], ['networkports_id_2' => $a]]])) {
+                $link->add(['networkports_id_1' => $a, 'networkports_id_2' => $b]);
+            }
+        };
+        $agent_port = new NetworkPort();
+        $first = $agent_port->find(['itemtype' => 'Computer', 'items_id' => $aud01->getID(), 'NOT' => ['instantiation_type' => 'NetworkPortLocal']], 'id', 1);
+        $agent_port->getFromDB((int) array_key_first($first));
+        $connect($port($sw1, 'Gi1/0/10', 10), $agent_port->getID());
+        $connect($port($sw1, 'Te1/1', 49), $port($sw2, 'Te1/48', 48));
+        foreach ([['aw-aud03', $sw2, 'Gi1/0/5'], ['aw-aud02', $sw1, '']] as [$name, $switch, $switch_port]) {
+            $uplink = new PluginAssetwatchUplink();
+            $computer = find_computer($name);
+            if (!$uplink->getFromDBByCrit(['itemtype' => 'Computer', 'items_id' => $computer->getID()])) {
+                $uplink->add(['itemtype' => 'Computer', 'items_id' => $computer->getID(), 'networkequipments_id' => $switch->getID(), 'switch_port' => $switch_port]);
+            }
+        }
+        $ghost = new Computer();
+        $ghost->getFromDBByCrit(['name' => 'aw-ghost']);
+        echo json_encode(['sw1' => $sw1->getID(), 'sw2' => $sw2->getID(), 'ghost' => $ghost->getID(),
+            'ra1' => $ra1->getID(), 'agent_port' => $agent_port->fields['name'] ?? ''], JSON_UNESCAPED_UNICODE), "\n";
+        exit(0);
+
+    case 'topology-json':
+        // php glpi_actions.php topology-json <scope> -> connections by name
+        $scope = PluginAssetwatchAudit::resolveScope($argv[2] ?? '', PluginAssetwatchAudit::rooms());
+        if ($scope === null) {
+            fwrite(STDERR, "unknown scope\n");
+            exit(1);
+        }
+        $data = PluginAssetwatchTopology::data($scope);
+        $name = static fn (string $key): string => $data['nodes'][$key]['name'];
+        $devices = [];
+        foreach ($data['graph']['devices'] as $key => $links) {
+            $devices[$name($key)] = array_map(static fn (array $l): string => trim($name($l['switch']) . ' ' . $l['switch_port']) . ' ' . implode('+', $l['sources']), $links);
+        }
+        echo json_encode([
+            'switches'    => array_map($name, $data['graph']['switches']),
+            'devices'     => $devices,
+            'peers'       => array_map(static fn (array $l): string => $name($l['a']) . ' ' . $l['a_port'] . ' - ' . $name($l['b']) . ' ' . $l['b_port'], $data['graph']['switch_links']),
+            'unconnected' => array_map($name, $data['graph']['unconnected']),
+            'conflicts'   => array_map(static fn (array $c): string => $name($c['switch']) . ' ' . $c['port'] . ': ' . implode(',', array_map($name, $c['keys'])), $data['graph']['port_conflicts']),
+            'counts'      => $data['counts'],
+            'edges'       => count($data['layout']['edges']),
+        ], JSON_UNESCAPED_UNICODE), "\n";
+        exit(0);
+
+    case 'roommap-json':
+        // php glpi_actions.php roommap-json <room id> -> metrics per rack
+        $room_id = (int) ($argv[2] ?? 0);
+        $map = PluginAssetwatchRoomMap::build($room_id, PluginAssetwatchAudit::collect([$room_id])['items']);
+        $racks = [];
+        foreach ($map['cells'] ?? [] as $cell) {
+            $racks[$cell['name']] = ['x' => $cell['x'], 'y' => $cell['y'], 'issues' => $cell['issues'], 'units_pct' => $cell['units_pct'],
+                'power_pct' => $cell['power_pct'], 'levels' => $cell['levels'], 'used' => $cell['used_units']];
+        }
+        echo json_encode(['racks' => $racks, 'cols' => $map['cols'] ?? 0, 'unracked' => $map['unracked'] ?? 0]), "\n";
+        exit(0);
+
     case 'audit-cleanup':
-        foreach ([Computer::class => ['aw-ghost'], NetworkEquipment::class => ['aw-sw01'], PDU::class => ['aw-pdu01'],
+        foreach ([Computer::class => ['aw-ghost'], NetworkEquipment::class => ['aw-sw01', 'aw-sw02'], PDU::class => ['aw-pdu01'], ComputerModel::class => ['AW-2U'],
                   Rack::class => ['AW-RA1', 'AW-RB1'], DCRoom::class => ['AW Room A', 'AW Room B'],
                   Datacenter::class => ['AW DC'], Location::class => ['AW Room A']] as $itemtype => $names) {
             $item = new $itemtype();

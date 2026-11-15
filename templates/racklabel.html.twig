@@ -1,0 +1,106 @@
+{#
+ # Asset Watch - GLPI plugin
+ # Rack labels: one A4 page per rack, front view + QR code per asset. Standalone page (printed).
+ # @license GPL-3.0-or-later
+ #}
+<!DOCTYPE html>
+<html lang="{{ lang }}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ title }}</title>
+<style>
+   @page { size: A4 portrait; margin: 10mm; }
+   * { box-sizing: border-box; }
+   body { margin: 0; font-family: "Segoe UI", "Noto Sans TC", "Microsoft JhengHei", "PingFang TC", Arial, sans-serif; color: #000; background: #e9ecef; }
+   .toolbar { position: sticky; top: 0; padding: 8px 12px; background: #1e293b; color: #fff; display: flex; gap: 12px; align-items: center; font-size: 14px; }
+   .toolbar button { font-size: 14px; padding: 4px 14px; cursor: pointer; }
+   .sheet { width: 190mm; min-height: 277mm; margin: 8mm auto; padding: 0; background: #fff; box-shadow: 0 0 4px rgba(0,0,0,.3); }
+   .sheet + .sheet { page-break-before: always; break-before: page; }
+   .head { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: .6mm solid #000; padding-bottom: 2mm; margin-bottom: 3mm; }
+   .head h1 { margin: 0; font-size: 7mm; }
+   .head .sub { font-size: 3.2mm; color: #333; margin-top: 1mm; }
+   .head .rackqr { width: 18mm; height: 18mm; }
+   .head .rackqr svg { width: 100%; height: 100%; }
+   .body { display: flex; gap: 4mm; align-items: flex-start; }
+   .rack { width: 68mm; flex: none; border: .5mm solid #000; }
+   .blk { display: flex; border-top: .2mm solid #999; font-size: 2.7mm; line-height: 1.05; overflow: hidden; }
+   .blk:first-child { border-top: none; }
+   .u { width: 9mm; flex: none; text-align: right; padding-right: 1mm; color: #555; border-right: .3mm solid #000; display: flex; align-items: center; justify-content: flex-end; font-variant-numeric: tabular-nums; }
+   .slot { flex: 1; display: flex; gap: .6mm; padding: 0 .8mm; align-items: center; min-width: 0; }
+   .slot.empty { background: repeating-linear-gradient(135deg, #fff 0 1.2mm, #f1f3f5 1.2mm 2.4mm); }
+   .asset { flex: 1; min-width: 0; display: flex; gap: 1mm; align-items: center; border: .25mm solid #000; border-radius: .6mm; padding: 0 .8mm; height: calc(100% - .6mm); background: #f8f9fa; }
+   .asset.rear { border-style: dashed; background: #fff; }
+   .num { flex: none; min-width: 3.6mm; height: 3.6mm; border-radius: 50%; background: #000; color: #fff; font-size: 2.3mm; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; }
+   .nm { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-weight: 600; }
+   .list { flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 2mm; align-content: start; }
+   .card { display: flex; gap: 1.5mm; border: .25mm solid #888; border-radius: 1mm; padding: 1mm; break-inside: avoid; }
+   .card .qr svg { width: 100%; height: 100%; display: block; }
+   .card .txt { min-width: 0; font-size: 2.7mm; line-height: 1.25; }
+   .card .txt b { display: block; font-size: 3.1mm; overflow-wrap: anywhere; }
+   .muted { color: #555; }
+   .foot { margin-top: 3mm; font-size: 2.6mm; color: #555; }
+   .warn { color: #b00; }
+   @media print {
+      body { background: #fff; }
+      .toolbar { display: none; }
+      .sheet { margin: 0; box-shadow: none; width: auto; min-height: 0; }
+      .num, .slot.empty, .asset { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+   }
+</style>
+</head>
+<body>
+<div class="toolbar">
+   <button type="button" onclick="window.print()">{{ __('Print', 'assetwatch') }}</button>
+   <span>{{ title }} · {{ pages|length }}</span>
+   <span>{{ __('Print on A4, scale 100% ("Default" margins), with background graphics.', 'assetwatch') }}</span>
+   {% if not has_qr %}<span class="warn">{{ __('QR codes unavailable: the bacon/bacon-qr-code library of GLPI was not found.', 'assetwatch') }}</span>{% endif %}
+</div>
+
+{% if pages is empty %}
+   <div class="sheet" style="padding: 10mm">{{ __('No rack to print.', 'assetwatch') }}</div>
+{% endif %}
+
+{% for page in pages %}
+<div class="sheet">
+   <div class="head">
+      <div>
+         <h1>{{ page.name }}</h1>
+         <div class="sub">{{ page.room ?: __('In no server room', 'assetwatch') }} · {{ page.number_units }}U · {{ __('%d asset(s)', 'assetwatch')|format(page.assets|length) }} · {{ __('Used: %1$d / %2$d U', 'assetwatch')|format(page.used_units, page.number_units) }}</div>
+         <div class="sub">{{ __('Printed on %s from GLPI. Scan a code to open the asset.', 'assetwatch')|format(printed) }}</div>
+      </div>
+      {% if page.rack_qr %}<div class="rackqr">{{ page.rack_qr|raw }}</div>{% endif %}
+   </div>
+   <div class="body">
+      <div class="rack" aria-label="{{ __('Front view', 'assetwatch') }}">
+         {% for blk in page.blocks %}
+            <div class="blk" style="height: {{ blk.units * page.unit_mm }}mm">
+               <div class="u">{{ blk.units > 1 ? blk.top ~ '–' ~ blk.bottom : blk.top }}</div>
+               <div class="slot{{ blk.assets is empty ? ' empty' : '' }}">
+                  {% for a in blk.assets %}
+                     <div class="asset{{ a.rear ? ' rear' : '' }}"><span class="num">{{ a.number }}</span><span class="nm">{{ a.name }}</span></div>
+                  {% endfor %}
+               </div>
+            </div>
+         {% endfor %}
+      </div>
+      <div class="list">
+         {% for a in page.assets %}
+            <div class="card">
+               {% if a.qr %}<div class="qr" style="width: {{ page.qr_mm }}mm; height: {{ page.qr_mm }}mm; flex: none">{{ a.qr|raw }}</div>{% endif %}
+               <div class="txt">
+                  <b><span class="num">{{ a.number }}</span> {{ a.name }}</b>
+                  <span class="muted">U{{ a.units }}{{ a.rear ? ' · ' ~ __('Rear', 'assetwatch') : '' }} · {{ a.type }}</span><br>
+                  {% if a.model %}{{ a.model }}<br>{% endif %}
+                  {% if a.serial %}<span class="muted">S/N</span> {{ a.serial }}{% endif %}
+                  {% if a.outside %}<br><span class="warn">{{ __('Beyond the rack height: check its position in GLPI.', 'assetwatch') }}</span>{% endif %}
+               </div>
+            </div>
+         {% endfor %}
+      </div>
+   </div>
+   <div class="foot">{{ __('Dashed frame = mounted at the rear. Heights come from the asset models (1U when not set).', 'assetwatch') }}</div>
+</div>
+{% endfor %}
+</body>
+</html>

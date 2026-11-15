@@ -255,8 +255,32 @@ if py "$DEV_DIR/ui_smoke.py" --audit "$ROOM_A" "$ROOM_B" "$DC_ID"; then
 else
     FAIL=$((FAIL + 1))
 fi
+
+log "11c. Floor map, rack labels, network topology (2.3)"
+TOPO=$(glpi_action topology-fixture)
+tj() { echo "$TOPO" | py -c "import json,sys; d=json.load(sys.stdin); print($1)"; }
+SW1=$(tj "d['sw1']"); SW2=$(tj "d['sw2']"); GHOST=$(tj "d['ghost']"); RA1=$(tj "d['ra1']")
+MAP=$(glpi_action roommap-json "$ROOM_A")
+mj() { echo "$MAP" | py -c "import json,sys; d=json.load(sys.stdin); print($1)"; }
+expect "floor map: AW-RA1 at 1,1 with 2 to check, 5/42U (2U model), 500/1000 W" "1,1 2 12 50" "$(mj "'%s,%s %s %s %s' % tuple(d['racks']['AW-RA1'][k] for k in ('x', 'y', 'issues', 'units_pct', 'power_pct'))")"
+expect "floor map levels (issues, units, power)" "warn ok ok" "$(mj "' '.join(d['racks']['AW-RA1']['levels'].values())")"
+expect "floor map: grid cropped to the racks + 1 cell, unracked counted" "2 1" "$(mj "'%s %s' % (d['cols'], d['unracked'])")"
+TJSON=$(glpi_action topology-json "dc:$DC_ID")
+tt() { echo "$TJSON" | py -c "import json,sys; d=json.load(sys.stdin); print($1)"; }
+expect "topology: GLPI port + typed (with and without port)" "aw-aud01=aw-sw01 Gi1/0/10 auto;aw-aud02=aw-sw01 manual;aw-aud03=aw-sw02 Gi1/0/5 manual" "$(tt "';'.join(k + '=' + ','.join(v) for k, v in sorted(d['devices'].items()))")"
+expect "topology: link between switches, both ends" "aw-sw01 Te1/1 - aw-sw02 Te1/48" "$(tt "';'.join(d['peers'])")"
+expect "topology: computer without connection" "aw-ghost" "$(tt "','.join(d['unconnected'])")"
+expect "topology of room B: switch of room A drawn as outside" "aw-sw02,aw-sw01 1" "$(glpi_action topology-json "room:$ROOM_B" | py -c "import json,sys; d=json.load(sys.stdin); print(','.join(d['switches']), d['counts']['switches'])")"
+if py "$DEV_DIR/ui_smoke.py" --topology "$ROOM_A" "$ROOM_B" "$DC_ID" "$SW1" "$SW2" "$GHOST" "$RA1"; then
+    PASS=$((PASS + 1))
+else
+    FAIL=$((FAIL + 1))
+fi
+expect "typed connection written to the device history (added + removed)" 2 "$(sql "SELECT COUNT(*) FROM glpi_logs WHERE itemtype='Computer' AND items_id=$GHOST AND new_value LIKE 'Network connection %: eth1 → aw-sw02 Gi1/0/5'")"
+expect "2 typed connections before the purge" 2 "$(sql "SELECT COUNT(*) FROM glpi_plugin_assetwatch_uplinks")"
 # leave no trace for the later steps
 glpi_action audit-cleanup
+expect "purging the switches drops the typed connections" 0 "$(sql "SELECT COUNT(*) FROM glpi_plugin_assetwatch_uplinks")"
 glpi_action purge aw-aud01 aw-aud02 aw-aud03
 sql "UPDATE glpi_configs SET value='{}' WHERE context='plugin:assetwatch' AND name='room_subnets';"
 restore_language

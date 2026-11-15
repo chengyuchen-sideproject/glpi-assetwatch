@@ -344,7 +344,7 @@ class PluginAssetwatchAudit extends CommonGLPI
      *
      * @return array<int, array<string, mixed>> keyed by id
      */
-    private static function assets(string $itemtype, array $ids): array
+    public static function assets(string $itemtype, array $ids): array
     {
         /** @var DBmysql $DB */
         global $DB;
@@ -380,6 +380,12 @@ class PluginAssetwatchAudit extends CommonGLPI
             if ($DB->fieldExists($table, $model_fk)) {
                 $model_table = $model_class::getTable();
                 $select[] = "$model_table.name AS model";
+                // Height and power of the model, for the floor map and the rack labels.
+                foreach (['required_units', 'power_consumption'] as $field) {
+                    if ($DB->fieldExists($model_table, $field)) {
+                        $select[] = "$model_table.$field AS model_$field";
+                    }
+                }
                 $joins[$model_table] = ['ON' => [$table => $model_fk, $model_table => 'id']];
             }
         }
@@ -403,6 +409,8 @@ class PluginAssetwatchAudit extends CommonGLPI
                 'computertypes_id' => (int) ($row['computertypes_id'] ?? 0),
                 'last_inventory'   => $last !== null ? (string) $last : null,
                 'inventoried'      => !empty($row['is_dynamic']) && $last !== null,
+                'units'            => max(1, (int) ($row['model_required_units'] ?? 1)),
+                'power'            => max(0, (int) ($row['model_power_consumption'] ?? 0)),
             ];
         }
         return $assets;
@@ -621,29 +629,39 @@ class PluginAssetwatchAudit extends CommonGLPI
         $scope = self::resolveScope($scope_key, $rooms);
         $result = $scope !== null ? self::collect($scope['room_ids'], $scope['unassigned']) : null;
 
-        $datacenters = [];
-        foreach ($rooms as $room) {
-            $datacenters[$room['datacenters_id']]['name'] = $room['datacenter'] !== '' ? $room['datacenter'] : __('No datacenter', 'assetwatch');
-            $datacenters[$room['datacenters_id']]['rooms'][] = $room;
-        }
-
         // Group rows: room -> rack (racked) / unracked
         $groups = [];
         if ($result !== null) {
             foreach ($result['items'] as $item) {
                 $room_key = $item['dcrooms_id'];
                 $groups[$room_key]['label'] ??= trim($item['datacenter'] . ' / ' . $item['room'], ' /');
+                $groups[$room_key]['id'] = $room_key;
                 $rack_key = $item['racked'] ? 'rack:' . $item['racks_id'] : 'unracked';
                 $groups[$room_key]['racks'][$rack_key]['label'] ??= $item['racked'] ? $item['rack'] : __('Not in a rack', 'assetwatch');
                 $groups[$room_key]['racks'][$rack_key]['racked'] = $item['racked'];
+                $groups[$room_key]['racks'][$rack_key]['id'] = $item['racks_id'];
                 $groups[$room_key]['racks'][$rack_key]['items'][] = $item;
+            }
+        }
+
+        // Floor map of each room of the scope (racks without assets included).
+        $maps = [];
+        if ($result !== null) {
+            foreach ($scope['room_ids'] as $room_id) {
+                $map = PluginAssetwatchRoomMap::build($room_id, $result['items']);
+                if ($map !== null && $map['cells'] !== []) {
+                    $maps[$room_id] = $map;
+                }
             }
         }
 
         TemplateRenderer::getInstance()->display('@assetwatch/audit.html.twig', [
             'title'          => self::getTypeName(),
             'self_url'       => self::getSearchURL(),
-            'datacenters'    => $datacenters,
+            'datacenters'    => self::datacenterChoices($rooms),
+            'maps'           => $maps,
+            'topology_url'   => PluginAssetwatchTopology::getSearchURL(),
+            'label_url'      => PluginAssetwatchRackLabel::getUrl([]) . 'rack=',
             'scope'          => $scope,
             'scope_key'      => $scope_key,
             'result'         => $result,
@@ -656,6 +674,23 @@ class PluginAssetwatchAudit extends CommonGLPI
             'datacenter_url' => Datacenter::getSearchURL(),
             'datacenter_label' => Datacenter::getTypeName(Session::getPluralNumber()),
         ]);
+    }
+
+    /**
+     * Rooms grouped by datacenter, for the scope selector.
+     *
+     * @param array<int, array<string, mixed>> $rooms
+     *
+     * @return array<int, array{name: string, rooms: list<array<string, mixed>>}>
+     */
+    public static function datacenterChoices(array $rooms): array
+    {
+        $datacenters = [];
+        foreach ($rooms as $room) {
+            $datacenters[$room['datacenters_id']]['name'] = $room['datacenter'] !== '' ? $room['datacenter'] : __('No datacenter', 'assetwatch');
+            $datacenters[$room['datacenters_id']]['rooms'][] = $room;
+        }
+        return $datacenters;
     }
 
     /**

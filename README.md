@@ -23,10 +23,13 @@ With GLPI 11 an asset can have **several technical groups**: each group gets its
 digest (listing only its machines), and one-shot change e-mails go to all of them.
 
 The plugin only **reads** GLPI data: it never connects to your machines and never
-modifies assets.
+modifies assets (the network connections typed by hand in 2.3 go to the plugin's own table,
+with a line in the asset history).
 
 Since 2.2 it also gives a **datacenter inventory** page (each server room rack by rack, with
 live status and the discrepancies to check on site) and a **Server room** dashboard filter.
+Since 2.3: a **floor map** of each server room, printable **rack labels with QR codes**, and a
+**network topology** page (which device is plugged into which switch).
 
 ## Requirements / compatibility
 
@@ -82,13 +85,13 @@ to install or run it, so it only has to be carried in.
    its `.sha256` file from the
    [Releases](https://github.com/chengyuchen-sideproject/glpi-assetwatch/releases) page
    (or build it from a checkout:
-   `git archive --format=tar.gz --prefix=assetwatch/ -o assetwatch-2.2.0.tar.gz v2.2.0`).
+   `git archive --format=tar.gz --prefix=assetwatch/ -o assetwatch-2.3.0.tar.gz v2.3.0`).
    Avoid GitHub's "Download ZIP": its folder is named `glpi-assetwatch-main` and must be renamed.
 2. Copy both files to the GLPI host, then:
 
    ```bash
-   sha256sum -c assetwatch-2.2.0.tar.gz.sha256
-   tar -xzf assetwatch-2.2.0.tar.gz -C ./glpi_plugins     # creates glpi_plugins/assetwatch
+   sha256sum -c assetwatch-2.3.0.tar.gz.sha256
+   tar -xzf assetwatch-2.3.0.tar.gz -C ./glpi_plugins     # creates glpi_plugins/assetwatch
    chmod -R a+rX ./glpi_plugins/assetwatch                # readable by www-data (uid 33)
    ```
 
@@ -196,6 +199,40 @@ location":
 - Same right as the alert list ("Asset alerts: Read"); only rooms, racks and assets of the
   active entities are shown. Read only, no e-mail.
 
+### Floor map and rack labels (since 2.3)
+
+- **Floor map**: the racks of a server room seen from above, at their position in the room
+  (GLPI rack field *Position in room*), coloured by the number of **assets to check on
+  site** (default), the **rack space** used or the **power** used (sum of the model power
+  consumption vs the rack maximum power). Shown above the racks in the inventory page and in a
+  **Floor map** tab of each server room. Click a rack to jump to its list. The map stops one
+  cell after the last rack; racks without a position are listed under the map.
+  Thresholds: space 70 % / 90 %, power 60 % / 80 %, assets to check 1 / 3.
+- **Rack labels** (button on each rack and on the floor map): one **A4 page per rack** with
+  the front view unit by unit and a **QR code per asset** that opens the asset in GLPI, to
+  stick on the rack door. Print at 100 % with background graphics. Heights come from the
+  asset models (*Required units*; 1U when not set). The QR codes need the GLPI URL
+  (Setup > General > *URL of the application*) to be reachable from the phone; they are
+  drawn with the `bacon/bacon-qr-code` library that GLPI ships (no extra package).
+
+### Network topology (since 2.3)
+
+**Tools > Network topology** shows which device is plugged into which network device, for a
+room, a datacenter or all rooms:
+
+- A **drawing**: one column per network device (with its rack and U), the devices plugged
+  into it below, lines between network devices above; box colour = Asset Watch status.
+  Then one table per network device (port, device, rack / U, device port, status, source),
+  and the list of computers / network devices **without any connection**.
+- Two sources, merged: **GLPI ports** (ports connected in GLPI, e.g. by the SNMP network
+  inventory of the switches; exact to the port) and connections **typed by hand** with
+  **Edit connections** (pick the network device; switch port and device port are optional).
+  Typed connections are stored in the plugin table `glpi_plugin_assetwatch_uplinks` and each
+  addition / removal is written to the asset history. Editing needs the GLPI right
+  *Network devices: Update*.
+- **Port used twice**: the same port of a network device recorded for several assets.
+- **Export CSV** (one line per connection, then the devices without connection) and **Print**.
+
 ### Automatic actions
 
 | Name | Frequency | Job |
@@ -212,7 +249,7 @@ imported in a database transaction, so a half-imported inventory is never compar
 
 | Change | Created on install | Removed by Uninstall |
 |---|---|---|
-| Tables `glpi_plugin_assetwatch_alerts`, `_snapshots`, `_digests` | yes | dropped |
+| Tables `glpi_plugin_assetwatch_alerts`, `_snapshots`, `_digests`, `_uplinks` (2.3) | yes | dropped |
 | Config entries (context `plugin:assetwatch`) | defaults, never overwrites existing values | deleted |
 | Profile rights `plugin_assetwatch_alert`, `plugin_assetwatch_config` | granted to profiles that can update GLPI config | deleted |
 | 3 automatic actions | yes | deleted |

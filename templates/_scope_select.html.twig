@@ -1,0 +1,27 @@
+{#
+ # Asset Watch - GLPI plugin
+ # Server room / datacenter selector shared by the inventory and topology pages.
+ # Variables: self_url, datacenters, scope_key, extra (hidden fields: name => value)
+ # @license GPL-3.0-or-later
+ #}
+<form method="get" action="{{ self_url }}" class="d-flex gap-2 aw-noprint">
+   {% for name, value in extra|default({}) %}<input type="hidden" name="{{ name }}" value="{{ value }}">{% endfor %}
+   <select name="scope" class="form-select" style="min-width: 18rem" onchange="this.form.submit()" aria-label="{{ __('Server room', 'assetwatch') }}">
+      <option value="">{{ __('Choose a server room…', 'assetwatch') }}</option>
+      {% if datacenters is not empty %}
+         <option value="all" {{ scope_key == 'all' ? 'selected' : '' }}>{{ __('All server rooms', 'assetwatch') }}</option>
+      {% endif %}
+      {% for dc_id, dc in datacenters %}
+         <optgroup label="{{ dc.name }}">
+            {% if dc_id > 0 and dc.rooms|length > 1 %}
+               <option value="dc:{{ dc_id }}" {{ scope_key == 'dc:' ~ dc_id ? 'selected' : '' }}>{{ __('Whole datacenter: %s', 'assetwatch')|format(dc.name) }}</option>
+            {% endif %}
+            {% for room in dc.rooms %}
+               <option value="room:{{ room.id }}" {{ scope_key == 'room:' ~ room.id ? 'selected' : '' }}>{{ room.name }}</option>
+            {% endfor %}
+         </optgroup>
+      {% endfor %}
+      <option value="unassigned" {{ scope_key == 'unassigned' ? 'selected' : '' }}>{{ __('Computers in no rack and without location', 'assetwatch') }}</option>
+   </select>
+   <noscript><button class="btn btn-primary" type="submit">{{ __('Show', 'assetwatch') }}</button></noscript>
+</form>

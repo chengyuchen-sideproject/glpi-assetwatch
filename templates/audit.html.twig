@@ -20,28 +20,10 @@
 <div class="container-fluid aw-audit">
    <div class="d-flex flex-wrap align-items-center gap-2 my-3">
       <h2 class="m-0 me-3"><i class="ti ti-clipboard-list me-2"></i>{{ title }}</h2>
-      <form method="get" action="{{ self_url }}" class="d-flex gap-2 aw-noprint">
-         <select name="scope" class="form-select" style="min-width: 18rem" onchange="this.form.submit()" aria-label="{{ __('Server room', 'assetwatch') }}">
-            <option value="">{{ __('Choose a server room…', 'assetwatch') }}</option>
-            {% if datacenters is not empty %}
-               <option value="all" {{ scope_key == 'all' ? 'selected' : '' }}>{{ __('All server rooms', 'assetwatch') }}</option>
-            {% endif %}
-            {% for dc_id, dc in datacenters %}
-               <optgroup label="{{ dc.name }}">
-                  {% if dc_id > 0 and dc.rooms|length > 1 %}
-                     <option value="dc:{{ dc_id }}" {{ scope_key == 'dc:' ~ dc_id ? 'selected' : '' }}>{{ __('Whole datacenter: %s', 'assetwatch')|format(dc.name) }}</option>
-                  {% endif %}
-                  {% for room in dc.rooms %}
-                     <option value="room:{{ room.id }}" {{ scope_key == 'room:' ~ room.id ? 'selected' : '' }}>{{ room.name }}</option>
-                  {% endfor %}
-               </optgroup>
-            {% endfor %}
-            <option value="unassigned" {{ scope_key == 'unassigned' ? 'selected' : '' }}>{{ __('Computers in no rack and without location', 'assetwatch') }}</option>
-         </select>
-         <noscript><button class="btn btn-primary" type="submit">{{ __('Show', 'assetwatch') }}</button></noscript>
-      </form>
+      {{ include('@assetwatch/_scope_select.html.twig') }}
       {% if result is not null %}
          <div class="ms-auto d-flex gap-2 aw-noprint">
+            <a class="btn btn-outline-secondary" href="{{ topology_url }}?scope={{ scope_key|url_encode }}"><i class="ti ti-topology-star-3 me-1"></i>{{ __('Network topology', 'assetwatch') }}</a>
             <a class="btn btn-outline-secondary" href="{{ self_url }}?scope={{ scope_key|url_encode }}&amp;export=csv"><i class="ti ti-file-spreadsheet me-1"></i>{{ __('Export CSV', 'assetwatch') }}</a>
             <button type="button" class="btn btn-outline-secondary" onclick="window.print()"><i class="ti ti-printer me-1"></i>{{ __('Print', 'assetwatch') }}</button>
          </div>
@@ -118,13 +100,19 @@
       {% endif %}
       {% for room in groups %}
          {% if groups|length > 1 or scope.unassigned %}<h3 class="mt-4 mb-2">{{ room.label ?: __('Computers in no rack and without location', 'assetwatch') }}</h3>{% endif %}
+         {% if maps[room.id] is defined %}
+            {{ include('@assetwatch/roommap.html.twig', {map: maps[room.id], in_audit: true}) }}
+         {% endif %}
          {% for rack in room.racks %}
-            <div class="card mb-3">
+            <div class="card mb-3" {% if rack.racked %}id="aw-rack-{{ rack.id }}"{% endif %}>
                <div class="card-header">
                   <h3 class="card-title">
                      <i class="ti {{ rack.racked ? 'ti-server' : 'ti-question-mark' }} me-1"></i>{{ rack.label }}
                      <span class="badge bg-secondary-lt ms-1">{{ rack.items|length }}</span>
                   </h3>
+                  {% if rack.racked %}
+                     <a class="btn btn-sm btn-outline-secondary ms-auto aw-noprint" href="{{ label_url }}{{ rack.id }}" target="_blank"><i class="ti ti-qrcode me-1"></i>{{ __('Rack label', 'assetwatch') }}</a>
+                  {% endif %}
                </div>
                <div class="table-responsive">
                <table class="table table-sm table-striped card-table">

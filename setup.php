@@ -12,7 +12,7 @@
 
 use Glpi\Plugin\Hooks;
 
-define('PLUGIN_ASSETWATCH_VERSION', '2.2.0');
+define('PLUGIN_ASSETWATCH_VERSION', '2.3.0');
 // Supported GLPI range: 11.0.x (GLPI 10 is handled by the 1.x branch).
 define('PLUGIN_ASSETWATCH_MIN_GLPI', '11.0.0');
 define('PLUGIN_ASSETWATCH_MAX_GLPI', '11.0.99');
@@ -47,18 +47,28 @@ function plugin_init_assetwatch()
     Plugin::registerClass(PluginAssetwatchDigest::class, [
         'notificationtemplates_types' => true,
     ]);
+    // Floor map tab of the server rooms.
+    Plugin::registerClass(PluginAssetwatchRoomMap::class, ['addtabon' => [DCRoom::class]]);
 
     // Rack placement changes are detected in real time.
     $PLUGIN_HOOKS[Hooks::ITEM_ADD]['assetwatch']    = [Item_Rack::class => 'plugin_assetwatch_item_rack_added'];
     $PLUGIN_HOOKS[Hooks::ITEM_UPDATE]['assetwatch'] = [Item_Rack::class => 'plugin_assetwatch_item_rack_updated'];
     $PLUGIN_HOOKS[Hooks::ITEM_PURGE]['assetwatch']  = [
         Item_Rack::class => 'plugin_assetwatch_item_rack_purged',
-        // Snapshots and alerts follow the computer lifecycle.
-        Computer::class  => 'plugin_assetwatch_computer_purged',
+        // Snapshots, alerts and typed connections follow the computer lifecycle.
+        Computer::class           => 'plugin_assetwatch_computer_purged',
+        NetworkEquipment::class   => 'plugin_assetwatch_linkable_purged',
+        Peripheral::class         => 'plugin_assetwatch_linkable_purged',
+        PDU::class                => 'plugin_assetwatch_linkable_purged',
+        Enclosure::class          => 'plugin_assetwatch_linkable_purged',
     ];
 
     if (Session::haveRight(PluginAssetwatchAlert::$rightname, READ)) {
-        $PLUGIN_HOOKS[Hooks::MENU_TOADD]['assetwatch'] = ['tools' => [PluginAssetwatchAlert::class, PluginAssetwatchAudit::class]];
+        $PLUGIN_HOOKS[Hooks::MENU_TOADD]['assetwatch'] = ['tools' => [
+            PluginAssetwatchAlert::class,
+            PluginAssetwatchAudit::class,
+            PluginAssetwatchTopology::class,
+        ]];
     }
 
     // Cards for GLPI dashboards (the callable checks the read right itself).

@@ -81,6 +81,86 @@ def big_number(html):
     return m.group(1).strip() if m else "?"
 
 
+def n_remove(html):
+    return html.count('name="remove[]"')
+
+
+def row_of(html, marker):
+    """The <tr> of the edit table that holds marker."""
+    end = html.find(marker)
+    start = html.rfind("<tr", 0, end)
+    return html[start:html.find("</tr>", end)] if end >= 0 and start >= 0 else ""
+
+
+def topology_checks(c, room_a, room_b, dc_id, sw1, sw2, ghost, ra1):
+    """2.3: floor map, rack labels, network topology (fixture of glpi_actions.php topology-fixture)."""
+    plugin = "/plugins/assetwatch/front"
+
+    # Floor map in the inventory page and in the server room tab.
+    status, html = c.get(f"{plugin}/audit.php?scope=room:{room_a}")
+    page_ok("inventory page with floor map", status, html, f'id="aw-map-{room_a}"')
+    check("rack AW-RA1 coloured by assets to check (2 = warn)", 'data-issues="warn" data-units="ok" data-power="ok"' in html, "levels not found")
+    check("rack card anchor + label link", f'id="aw-rack-{ra1}"' in html and f"racklabel.php?rack={ra1}" in html, "missing")
+    check("inventory links the topology", f"topology.php?scope=room%3A{room_a}" in html, "missing")
+    status, html = c.get(f"/front/dcroom.form.php?id={room_a}")
+    check("server room form has the floor map tab", "PluginAssetwatchRoomMap$1" in html, "tab missing")
+    status, html = c.get(f"/ajax/common.tabs.php?_target=/front/dcroom.form.php&_itemtype=DCRoom&_glpi_tab=PluginAssetwatchRoomMap$1&id={room_a}", ajax=True)
+    page_ok("floor map tab of the server room", status, html, f'id="aw-map-{room_a}"')
+    check("tab links back to the inventory rack card", f"audit.php?scope=room:{room_a}#aw-rack-{ra1}" in html, "link missing")
+
+    # Rack labels
+    status, html = c.get(f"{plugin}/racklabel.php?room={room_a}")
+    page_ok("rack labels of room A", status, html, "AW-RA1")
+    check("labels: 1 rack QR + 4 asset QR", html.count("<svg") == 5, f"{html.count('<svg')} svg")
+    cards = html[html.find('class="list"'):]
+    order = [cards.find(n) for n in ("aw-sw01", "aw-ghost", "aw-aud01", "aw-pdu01")]
+    check("labels numbered from the top of the rack", all(o >= 0 for o in order) and order == sorted(order), str(order))
+    check("2U model shown as U10–11", "U10–11" in html, "not found")
+    status, html = c.get(f"{plugin}/racklabel.php?rack=999999")
+    page_ok("rack label of an unknown rack", status, html, "No rack to print.")
+
+    # Topology drawing
+    status, html = c.get(f"{plugin}/topology.php")
+    page_ok("topology page (no room chosen)", status, html, f'value="dc:{dc_id}"')
+    status, html = c.get("/front/central.php")
+    check("Tools menu links the topology page", "/plugins/assetwatch/front/topology.php" in html, "menu entry missing")
+    status, html = c.get(f"{plugin}/topology.php?scope=dc:{dc_id}")
+    page_ok("topology page (datacenter)", status, html, "<svg")
+    for marker in ("aw-sw01", "aw-sw02", "aw-aud01", "aw-aud02", "aw-aud03", "Gi1/0/10", "Gi1/0/5", "Te1/48", "No connection recorded"):
+        check(f"topology shows '{marker}'", marker in html, "not found")
+    svg = html[html.find("<svg"):html.find("</svg>")]
+    check("drawing: 3 device lines + 1 between switches", svg.count("<path ") == 4, f"{svg.count('<path ')} paths")
+    check("drawing: typed connections are dashed", svg.count("aw-e-manual") == 2, f"{svg.count('aw-e-manual')}")
+    check("drawing: ghost in the unconnected column", "aw-ghost" in svg, "missing")
+    status, html = c.get(f"{plugin}/topology.php?scope=room:{room_b}")
+    page_ok("topology of room B shows the switch of room A as outside", status, html, "outside the selection")
+
+    status, csv = c.get(f"{plugin}/topology.php?scope=dc:{dc_id}&export=csv")
+    lines = csv.strip().splitlines()
+    check("topology CSV: header + 3 devices + 1 switch link + 1 unconnected", status == 200 and csv.startswith("\ufeff") and len(lines) == 6,
+          f"HTTP {status}, {len(lines)} lines")
+
+    # Edit connections
+    status, html = c.get(f"{plugin}/topology.php?scope=dc:{dc_id}&edit=1")
+    page_ok("topology edit page", status, html, f'name="add[Computer:{ghost}][switch]"')
+    check("edit page offers the switches", f'<option value="{sw2}">aw-sw02' in html, "option missing")
+    check("edit page: 2 typed connections removable", html.count('name="remove[]"') == 2, f"{n_remove(html)}")
+    c.post(f"{plugin}/topology.php", {"scope": f"dc:{dc_id}", "save": "1", f"add[Computer:{ghost}][switch]": str(sw2)})
+    status, html = c.get(f"{plugin}/topology.php?scope=dc:{dc_id}&edit=1")
+    check("POST without CSRF token is refused", html.count('name="remove[]"') == 2, f"{n_remove(html)}")
+    status, saved = c.post(f"{plugin}/topology.php", {
+        "_glpi_csrf_token": csrf(html), "scope": f"dc:{dc_id}", "save": "1",
+        f"add[Computer:{ghost}][switch]": str(sw2), f"add[Computer:{ghost}][switch_port]": "Gi1/0/5",
+        f"add[Computer:{ghost}][device_port]": "eth1",
+    })
+    status, html = c.get(f"{plugin}/topology.php?scope=dc:{dc_id}&edit=1")
+    check("typed connection saved", "Connections saved: 1 added, 0 removed." in saved and html.count('name="remove[]"') == 3, "not saved")
+    check("same port twice is reported", "Port used twice" in html and "aw-aud03, aw-ghost" in html, "no conflict")
+    m = __import__("re").search(r'name="remove\[\]" value="(\d+)"', row_of(html, f'add[Computer:{ghost}][switch]'))
+    status, removed = c.post(f"{plugin}/topology.php", {"_glpi_csrf_token": csrf(html), "scope": f"dc:{dc_id}", "save": "1", "remove[]": m.group(1) if m else "0"})
+    check("typed connection removed", "0 added, 1 removed." in removed and "Port used twice" not in removed and n_remove(removed) == 2, "not removed")
+
+
 def audit_checks(c, room_a, room_b, dc_id):
     """2.2: datacenter inventory page, CSV, room networks setting, "Server room" dashboard filter."""
     plugin = "/plugins/assetwatch/front"
@@ -165,9 +245,18 @@ def main():
     parser.add_argument("--profile-id", type=int, default=4, help="Super-Admin profile id")
     parser.add_argument("--audit", nargs=3, type=int, metavar=("ROOM_A", "ROOM_B", "DC"),
                         help="only run the datacenter inventory checks (fixture of glpi_actions.php audit-fixture)")
+    parser.add_argument("--topology", nargs=7, type=int, metavar=("ROOM_A", "ROOM_B", "DC", "SW1", "SW2", "GHOST", "RA1"),
+                        help="only run the floor map / rack label / topology checks (glpi_actions.php topology-fixture)")
     args = parser.parse_args()
 
     c = Client(args.base)
+    if args.topology:
+        if not login(c):
+            print("login form not found")
+            return 1
+        topology_checks(c, *args.topology)
+        print(f"\n{len(FAILS)} UI check(s) failed" if FAILS else "\nUI smoke OK")
+        return 1 if FAILS else 0
     if args.audit:
         if not login(c):
             print("login form not found")

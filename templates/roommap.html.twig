@@ -1,0 +1,126 @@
+{#
+ # Asset Watch - GLPI plugin
+ # Floor map of a server room (tab of the room, and datacenter inventory page).
+ # Variables: map (PluginAssetwatchRoomMap::build), in_audit (links go to the rack cards of the page)
+ # @license GPL-3.0-or-later
+ #}
+
+<style>
+   .aw-map { --aw-ok: rgba(47, 179, 68, .28); --aw-ok-b: #2fb344; --aw-warn: rgba(247, 103, 7, .28); --aw-warn-b: #f76707;
+             --aw-bad: rgba(214, 57, 57, .35); --aw-bad-b: #d63939; --aw-none: rgba(120, 130, 140, .15); --aw-none-b: #adb5bd; }
+   .aw-map .aw-map-scroll { overflow-x: auto; }
+   .aw-map .aw-grid { display: grid; gap: 4px; padding: 4px; width: max-content; border: 1px dashed var(--tblr-border-color, #ccc);
+                      border-radius: 4px; background-size: cover; background-position: center; background-repeat: no-repeat;
+                      background-image: linear-gradient(var(--tblr-border-color-translucent, rgba(0,0,0,.06)) 1px, transparent 1px),
+                                        linear-gradient(90deg, var(--tblr-border-color-translucent, rgba(0,0,0,.06)) 1px, transparent 1px); }
+   .aw-map .aw-rack { position: relative; display: flex; flex-direction: column; justify-content: center; align-items: center;
+                      border: 2px solid var(--aw-none-b); background: var(--aw-none); border-radius: 4px; color: inherit;
+                      text-decoration: none; overflow: hidden; line-height: 1.1; padding: 2px; }
+   .aw-map .aw-rack:hover { outline: 3px solid var(--tblr-primary, #206bc4); z-index: 1; }
+   .aw-map .aw-rack-name { font-size: .72rem; font-weight: 600; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+   .aw-map .aw-v { display: none; font-size: 1rem; font-weight: 700; }
+   .aw-map .aw-front { position: absolute; top: 1px; right: 2px; font-size: .7rem; opacity: .6; }
+   .aw-map .aw-chip { display: inline-flex; flex-direction: row; gap: .4rem; width: auto; height: auto; padding: .15rem .5rem; }
+   .aw-map .aw-chip .aw-v { font-size: .8rem; }
+   .aw-map .aw-legend span { display: inline-block; padding: .1rem .5rem; border-radius: 4px; border: 2px solid; margin-right: .3rem; font-size: .8rem; }
+   .aw-map .aw-legend { display: none; }
+   {% for metric in ['issues', 'units', 'power'] %}
+      .aw-map[data-metric="{{ metric }}"] .aw-v-{{ metric }} { display: block; }
+      .aw-map[data-metric="{{ metric }}"] .aw-legend-{{ metric }} { display: block; }
+      {% for level in ['ok', 'warn', 'bad', 'none'] %}
+         .aw-map[data-metric="{{ metric }}"] .aw-rack[data-{{ metric }}="{{ level }}"] { background: var(--aw-{{ level }}); border-color: var(--aw-{{ level }}-b); }
+      {% endfor %}
+   {% endfor %}
+   .aw-map .aw-legend .aw-l-ok { background: var(--aw-ok); border-color: var(--aw-ok-b); }
+   .aw-map .aw-legend .aw-l-warn { background: var(--aw-warn); border-color: var(--aw-warn-b); }
+   .aw-map .aw-legend .aw-l-bad { background: var(--aw-bad); border-color: var(--aw-bad-b); }
+   .aw-map .aw-legend .aw-l-none { background: var(--aw-none); border-color: var(--aw-none-b); }
+   @media print { .aw-map .aw-rack, .aw-map .aw-legend span { print-color-adjust: exact; -webkit-print-color-adjust: exact; } }
+</style>
+
+{% macro rack(c, in_audit, chip) %}
+   {% set tip = c.name ~ ' · ' ~ __('%d asset(s)', 'assetwatch')|format(c.items) ~ ' · ' ~ __('To check on site', 'assetwatch') ~ ': ' ~ c.issues
+      ~ ' · ' ~ c.used_units ~ '/' ~ c.number_units ~ 'U'
+      ~ ' · ' ~ (c.max_power > 0 ? c.power ~ '/' ~ c.max_power ~ ' W' : __('Power: no maximum set on the rack', 'assetwatch')) %}
+   <a class="aw-rack{{ chip ? ' aw-chip' : '' }}" href="{{ in_audit ? '#' ~ c.audit_anchor : c.audit_url }}"
+      {% if not chip %}style="grid-column: {{ c.x }}; grid-row: {{ c.y }}"{% endif %}
+      data-issues="{{ c.levels.issues }}" data-units="{{ c.levels.units }}" data-power="{{ c.levels.power }}"
+      title="{{ tip }}" aria-label="{{ tip }}">
+      <span class="aw-rack-name">{{ c.name }}</span>
+      <span class="aw-v aw-v-issues">{{ c.issues }}</span>
+      <span class="aw-v aw-v-units">{{ c.units_pct is null ? '—' : c.units_pct ~ '%' }}</span>
+      <span class="aw-v aw-v-power">{{ c.power_pct is null ? '—' : c.power_pct ~ '%' }}</span>
+      {% if c.front and not chip %}<i class="aw-front ti ti-arrow-{{ c.front }}" title="{{ __('Front of the rack', 'assetwatch') }}"></i>{% endif %}
+   </a>
+{% endmacro %}
+
+<div class="card mb-3 aw-map" data-metric="issues" id="aw-map-{{ map.room_id }}">
+   <div class="card-header d-flex flex-wrap gap-2 align-items-center">
+      <h3 class="card-title m-0">
+         <i class="ti ti-layout-grid me-1"></i>{{ __('Floor map', 'assetwatch') }} — {{ map.room_name }}
+         <small class="text-muted ms-2">{{ __('%d asset(s)', 'assetwatch')|format(map.totals.items) }}, {{ __('To check on site', 'assetwatch') }}: {{ map.totals.issues }}</small>
+      </h3>
+      <div class="ms-auto d-flex flex-wrap gap-2 aw-noprint">
+         <div class="btn-group btn-group-sm" role="group" aria-label="{{ __('Colour by', 'assetwatch') }}">
+            <button type="button" class="btn btn-outline-secondary active" data-aw-metric="issues">{{ __('To check on site', 'assetwatch') }}</button>
+            <button type="button" class="btn btn-outline-secondary" data-aw-metric="units">{{ __('Rack space', 'assetwatch') }}</button>
+            <button type="button" class="btn btn-outline-secondary" data-aw-metric="power">{{ __('Power', 'assetwatch') }}</button>
+         </div>
+         {% if map.cells is not empty %}
+            <a class="btn btn-sm btn-outline-secondary" href="{{ map.labels_url }}" target="_blank"><i class="ti ti-qrcode me-1"></i>{{ __('Rack labels', 'assetwatch') }}</a>
+         {% endif %}
+         {% if not in_audit %}
+            <a class="btn btn-sm btn-outline-secondary" href="{{ map.audit_url }}"><i class="ti ti-clipboard-list me-1"></i>{{ __('Datacenter inventory', 'assetwatch') }}</a>
+         {% endif %}
+      </div>
+   </div>
+   <div class="card-body">
+      {% if map.cells is empty %}
+         <p class="text-muted mb-0">{{ __('No rack in this room.', 'assetwatch') }}</p>
+      {% else %}
+         {% if map.placed is not empty %}
+            <div class="aw-map-scroll mb-2">
+               <div class="aw-grid" style="grid-template-columns: repeat({{ map.cols }}, {{ map.cell }}px); grid-template-rows: repeat({{ map.rows }}, {{ map.cell }}px);
+                    {% if map.blueprint %}background-image: url('{{ map.blueprint }}');{% endif %}">
+                  {% for c in map.placed %}{{ _self.rack(c, in_audit, false) }}{% endfor %}
+               </div>
+            </div>
+         {% endif %}
+         {% if map.unplaced is not empty %}
+            <div class="mb-2">
+               <span class="text-muted small me-1">{{ __('Not placed on the room grid (set the position of the rack in the room):', 'assetwatch') }}</span>
+               {% for c in map.unplaced %}{{ _self.rack(c, in_audit, true) }} {% endfor %}
+            </div>
+         {% endif %}
+         <div class="aw-legend aw-legend-issues small"><span class="aw-l-ok">0</span><span class="aw-l-warn">1–{{ map.thresholds.issues_bad - 1 }}</span><span class="aw-l-bad">{{ map.thresholds.issues_bad }}+</span>
+            {{ __('assets to check on site in the rack', 'assetwatch') }}</div>
+         <div class="aw-legend aw-legend-units small"><span class="aw-l-ok">&lt; {{ map.thresholds.units_warn }}%</span><span class="aw-l-warn">{{ map.thresholds.units_warn }}%+</span><span class="aw-l-bad">{{ map.thresholds.units_bad }}%+</span>
+            {{ __('rack units used (asset height from its model, 1U when not set)', 'assetwatch') }}</div>
+         <div class="aw-legend aw-legend-power small"><span class="aw-l-ok">&lt; {{ map.thresholds.power_warn }}%</span><span class="aw-l-warn">{{ map.thresholds.power_warn }}%+</span><span class="aw-l-bad">{{ map.thresholds.power_bad }}%+</span><span class="aw-l-none">—</span>
+            {{ __('power consumption of the models vs the maximum power of the rack (— = no maximum set)', 'assetwatch') }}</div>
+         {% if map.unracked > 0 %}
+            <p class="small text-muted mt-2 mb-0">{{ __('%d computer(s) of this room are in no rack (not on the map).', 'assetwatch')|format(map.unracked) }}</p>
+         {% endif %}
+      {% endif %}
+   </div>
+</div>
+
+<script>
+   (function () {
+      if (window.awRoomMapInit) {
+         return;
+      }
+      window.awRoomMapInit = true;
+      document.addEventListener('click', function (e) {
+         var button = e.target.closest('[data-aw-metric]');
+         if (!button) {
+            return;
+         }
+         var map = button.closest('.aw-map');
+         map.dataset.metric = button.dataset.awMetric;
+         map.querySelectorAll('[data-aw-metric]').forEach(function (b) {
+            b.classList.toggle('active', b === button);
+         });
+      });
+   })();
+</script>

@@ -20,6 +20,14 @@ msgstr "已取消確認：恢復提醒。"
 msgid "Configuration saved."
 msgstr "設定已儲存。"
 
+#: front/topology.php:26
+msgid "Connections saved: %1$d added, %2$d removed."
+msgstr "接線已儲存：新增 %1$d 筆、移除 %2$d 筆。"
+
+#: front/topology.php:32
+msgid "%d connection(s) refused (asset or network device not found, or not visible)."
+msgstr "%d 筆接線沒有存（找不到設備或網路設備，或沒有權限看到）。"
+
 #: inc/alert.class.php:52 inc/dashboard.class.php:61 inc/profile.class.php:23 inc/profile.class.php:68 templates/config.html.twig:8
 msgid "Asset Watch"
 msgstr "資產監看"
@@ -32,7 +40,7 @@ msgstr "確認告警"
 msgid "No inventory"
 msgstr "沒回報"
 
-#: inc/alert.class.php:109 inc/audit.class.php:573 inc/dashboard.class.php:207 templates/config.html.twig:32
+#: inc/alert.class.php:109 inc/audit.class.php:581 inc/dashboard.class.php:207 templates/config.html.twig:32
 msgid "Low disk space"
 msgstr "硬碟空間不足"
 
@@ -149,147 +157,147 @@ msgid "Asset alert"
 msgid_plural "Asset alerts"
 msgstr[0] "資產告警"
 
-#: inc/audit.class.php:36 templates/config.html.twig:101
+#: inc/audit.class.php:36 templates/config.html.twig:101 templates/roommap.html.twig:73
 msgid "Datacenter inventory"
 msgstr "機房盤點"
 
-#: inc/audit.class.php:108 templates/audit.html.twig:39 templates/audit.html.twig:120
+#: inc/audit.class.php:108 templates/_scope_select.html.twig:24 templates/audit.html.twig:102
 msgid "Computers in no rack and without location"
 msgstr "沒上機櫃也沒設位置的電腦"
 
-#: inc/audit.class.php:111 templates/audit.html.twig:27
+#: inc/audit.class.php:111 templates/_scope_select.html.twig:12
 msgid "All server rooms"
 msgstr "所有機房"
 
-#: inc/audit.class.php:572 inc/dashboard.class.php:205
+#: inc/audit.class.php:580 inc/dashboard.class.php:205
 msgid "Healthy"
 msgstr "正常"
 
-#: inc/audit.class.php:574 inc/dashboard.class.php:206
+#: inc/audit.class.php:582 inc/dashboard.class.php:206
 msgid "Offline"
 msgstr "離線"
 
-#: inc/audit.class.php:575 inc/audit.class.php:592
+#: inc/audit.class.php:583 inc/audit.class.php:600
 msgid "Probably removed"
 msgstr "疑似已下架"
 
-#: inc/audit.class.php:576
+#: inc/audit.class.php:584
 msgid "No agent"
 msgstr "無 Agent"
 
-#: inc/audit.class.php:588
+#: inc/audit.class.php:596
 msgid "In a rack, never reported"
 msgstr "在機櫃上但從沒回報"
 
-#: inc/audit.class.php:589
+#: inc/audit.class.php:597
 msgid "Computer placed in a rack but GLPI Agent never sent its inventory: agent not installed, or the machine is not there."
 msgstr "電腦放在機櫃上，但 GLPI Agent 從未回報：沒裝 Agent，或機器其實不在那裡。"
 
-#: inc/audit.class.php:593
+#: inc/audit.class.php:601
 msgid "No inventory for %d days or more: check that it is still in the rack."
 msgstr "超過 %d 天沒有回報：請確認它還在機櫃上。"
 
-#: inc/audit.class.php:596 inc/audit.class.php:637 inc/audit.class.php:694
+#: inc/audit.class.php:604 inc/audit.class.php:640 inc/audit.class.php:729
 msgid "Not in a rack"
 msgstr "沒上機櫃"
 
-#: inc/audit.class.php:597
+#: inc/audit.class.php:605
 msgid "Reporting computer of this room (by location) that is placed in no rack."
 msgstr "依位置屬於這個機房、有在回報，但沒放進任何機櫃的電腦。"
 
-#: inc/audit.class.php:600
+#: inc/audit.class.php:608
 msgid "Duplicate serial number"
 msgstr "序號重複"
 
-#: inc/audit.class.php:601
+#: inc/audit.class.php:609
 msgid "Another asset of the same type has the same serial number (duplicate record?)."
 msgstr "另一筆同類型資產有相同序號（可能是重複的紀錄）。"
 
-#: inc/audit.class.php:604
+#: inc/audit.class.php:612
 msgid "No technical group"
 msgstr "沒有技術群組"
 
-#: inc/audit.class.php:605
+#: inc/audit.class.php:613
 msgid "Nobody receives the alerts of this computer."
 msgstr "這台電腦的告警沒有人會收到。"
 
-#: inc/audit.class.php:608
+#: inc/audit.class.php:616
 msgid "Address outside the room networks"
 msgstr "IP 不在機房網段內"
 
-#: inc/audit.class.php:609
+#: inc/audit.class.php:617
 msgid "None of its addresses is in the networks configured for the room (Setup > Plugins > Asset Watch)."
 msgstr "它的 IP 都不在這個機房設定的網段內（設定 > 外掛 > Asset Watch）。"
 
-#: inc/audit.class.php:626
+#: inc/audit.class.php:690
 msgid "No datacenter"
 msgstr "未指定資料中心"
 
-#: inc/audit.class.php:673
+#: inc/audit.class.php:708
 msgid "Front"
 msgstr "正面"
 
-#: inc/audit.class.php:673
+#: inc/audit.class.php:708 templates/racklabel.html.twig:93
 msgid "Rear"
 msgstr "背面"
 
-#: inc/audit.class.php:678
+#: inc/audit.class.php:713
 msgid "Datacenter"
 msgstr "資料中心"
 
-#: inc/audit.class.php:678 inc/roomfilter.class.php:27 templates/audit.html.twig:24
+#: inc/audit.class.php:713 inc/roomfilter.class.php:27 templates/_scope_select.html.twig:9
 msgid "Server room"
 msgstr "機房"
 
-#: inc/audit.class.php:678
+#: inc/audit.class.php:713
 msgid "Rack"
 msgstr "機櫃"
 
-#: inc/audit.class.php:678
+#: inc/audit.class.php:713
 msgid "Rack unit (U)"
 msgstr "U 位"
 
-#: inc/audit.class.php:678
+#: inc/audit.class.php:713
 msgid "Side"
 msgstr "面向"
 
-#: inc/audit.class.php:679
+#: inc/audit.class.php:714 inc/topology.class.php:466
 msgid "Asset type"
 msgstr "設備類型"
 
-#: inc/audit.class.php:679
+#: inc/audit.class.php:714
 msgid "Manufacturer"
 msgstr "製造商"
 
-#: inc/audit.class.php:679 templates/audit.html.twig:136
+#: inc/audit.class.php:714 templates/audit.html.twig:124
 msgid "Model"
 msgstr "型號"
 
-#: inc/audit.class.php:680 templates/audit.html.twig:137
+#: inc/audit.class.php:715 templates/audit.html.twig:125
 msgid "IP addresses"
 msgstr "IP 位址"
 
-#: inc/audit.class.php:680 templates/audit.html.twig:138
+#: inc/audit.class.php:715 templates/audit.html.twig:126
 msgid "Last inventory"
 msgstr "最後回報"
 
-#: inc/audit.class.php:681 templates/audit.html.twig:91
+#: inc/audit.class.php:716 templates/audit.html.twig:73
 msgid "Discrepancies"
 msgstr "落差"
 
-#: inc/audit.class.php:681 templates/audit.html.twig:139
+#: inc/audit.class.php:716 templates/audit.html.twig:127
 msgid "Technical groups"
 msgstr "技術群組"
 
-#: inc/audit.class.php:681 templates/audit.html.twig:140
+#: inc/audit.class.php:716 templates/audit.html.twig:128
 msgid "Hardware"
 msgstr "硬體"
 
-#: inc/audit.class.php:687 templates/audit.html.twig:101
+#: inc/audit.class.php:722 templates/audit.html.twig:83
 msgid "%d other asset(s) with this serial"
 msgstr "另有 %d 筆相同序號"
 
-#: inc/audit.class.php:557
+#: inc/audit.class.php:565
 msgid "%d drive"
 msgid_plural "%d drives"
 msgstr[0] "%d 顆硬碟"
@@ -444,14 +452,92 @@ msgstr "開始時間"
 msgid "List of alerts"
 msgstr "告警清單"
 
+#: inc/racklabel.class.php:33 templates/audit.html.twig:114
+msgid "Rack label"
+msgid_plural "Rack labels"
+msgstr[0] "機櫃標籤"
+
 #: inc/rackwatcher.class.php:67
 msgid "Automatic action"
 msgstr "自動動作"
+
+#: inc/roommap.class.php:36 templates/roommap.html.twig:60
+msgid "Floor map"
+msgstr "機房平面圖"
 
 #: inc/snapshot.class.php:22
 msgid "Baseline"
 msgid_plural "Baselines"
 msgstr[0] "比對基準"
+
+#: inc/topology.class.php:28 templates/audit.html.twig:26
+msgid "Network topology"
+msgstr "網路架構圖"
+
+#: inc/topology.class.php:99 templates/topology.html.twig:196
+msgid "%d device(s)"
+msgstr "%d 台"
+
+#: inc/topology.class.php:294
+msgid "Outside the selection"
+msgstr "不在目前範圍內"
+
+#: inc/topology.class.php:465 templates/topology.html.twig:138
+msgid "Network device"
+msgstr "網路設備"
+
+#: inc/topology.class.php:465 inc/topology.class.php:466 templates/audit.html.twig:73 templates/topology.html.twig:113 templates/topology.html.twig:246 templates/topology.html.twig:276
+msgid "Location"
+msgstr "位置"
+
+#: inc/topology.class.php:465 templates/topology.html.twig:139 templates/topology.html.twig:139 templates/topology.html.twig:246
+msgid "Switch port"
+msgstr "Switch port"
+
+#: inc/topology.class.php:466 templates/topology.html.twig:246 templates/topology.html.twig:276
+msgid "Device"
+msgstr "設備"
+
+#: inc/topology.class.php:466 templates/topology.html.twig:140 templates/topology.html.twig:140 templates/topology.html.twig:247
+msgid "Device port"
+msgstr "設備網卡"
+
+#: inc/topology.class.php:467 templates/topology.html.twig:247
+msgid "Source"
+msgstr "來源"
+
+#: inc/topology.class.php:503 templates/topology.html.twig:40 templates/topology.html.twig:184
+msgid "GLPI ports"
+msgstr "GLPI 連接埠"
+
+#: inc/topology.class.php:504 templates/topology.html.twig:40 templates/topology.html.twig:185
+msgid "Typed by hand"
+msgstr "手動填寫"
+
+#: inc/uplink.class.php:63
+msgid "Network connection added: %s"
+msgstr "新增接線：%s"
+
+#: inc/uplink.class.php:69
+msgid "Network connection removed: %s"
+msgstr "移除接線：%s"
+
+#: inc/uplink.class.php:30
+msgid "Network connection"
+msgid_plural "Network connections"
+msgstr[0] "接線"
+
+#: templates/_scope_select.html.twig:10
+msgid "Choose a server room…"
+msgstr "選擇機房…"
+
+#: templates/_scope_select.html.twig:17
+msgid "Whole datacenter: %s"
+msgstr "整個資料中心：%s"
+
+#: templates/_scope_select.html.twig:26
+msgid "Show"
+msgstr "顯示"
 
 #: templates/alert_form.html.twig:38
 msgid "None: nobody is notified"
@@ -473,59 +559,43 @@ msgstr "暫停提醒至（空白 = 直到恢復）"
 msgid "Resume reminders"
 msgstr "恢復提醒"
 
-#: templates/audit.html.twig:25
-msgid "Choose a server room…"
-msgstr "選擇機房…"
-
-#: templates/audit.html.twig:32
-msgid "Whole datacenter: %s"
-msgstr "整個資料中心：%s"
-
-#: templates/audit.html.twig:41
-msgid "Show"
-msgstr "顯示"
-
-#: templates/audit.html.twig:45
+#: templates/audit.html.twig:27 templates/topology.html.twig:56
 msgid "Export CSV"
 msgstr "匯出 CSV"
 
-#: templates/audit.html.twig:46
+#: templates/audit.html.twig:28 templates/racklabel.html.twig:54 templates/topology.html.twig:57
 msgid "Print"
 msgstr "列印"
 
-#: templates/audit.html.twig:53
+#: templates/audit.html.twig:35 templates/topology.html.twig:64
 msgid "No server room yet. Create datacenters and server rooms in Assets > Datacenters, assign the racks to a room and set a location on the room."
 msgstr "還沒有機房。請到「資產 > 資料中心」建立資料中心與機房，把機櫃指定到機房，並設定機房的位置。"
 
-#: templates/audit.html.twig:58
+#: templates/audit.html.twig:40
 msgid "Pick a server room to list its assets rack by rack, with their status and what to check on site."
 msgstr "選一個機房，依機櫃列出所有設備、目前狀態，以及到現場要確認的項目。"
 
-#: templates/audit.html.twig:65
+#: templates/audit.html.twig:47
 msgid "Assets"
 msgstr "設備"
 
-#: templates/audit.html.twig:75
+#: templates/audit.html.twig:57 templates/roommap.html.twig:42 templates/roommap.html.twig:61 templates/roommap.html.twig:65
 msgid "To check on site"
 msgstr "到現場要確認"
 
-#: templates/audit.html.twig:86
+#: templates/audit.html.twig:68
 msgid "Nothing to check: GLPI matches what the agents report."
 msgstr "沒有需要確認的：GLPI 的資料和 Agent 回報一致。"
 
 #: templates/audit.html.twig:91
-msgid "Location"
-msgstr "位置"
-
-#: templates/audit.html.twig:109
 msgid "\"Probably removed\" = no inventory for %d days or more."
 msgstr "「疑似已下架」＝超過 %d 天沒有回報。"
 
-#: templates/audit.html.twig:110
+#: templates/audit.html.twig:92
 msgid "Thresholds and room networks"
 msgstr "門檻與機房網段設定"
 
-#: templates/audit.html.twig:117
+#: templates/audit.html.twig:99
 msgid "No asset found: no rack of this room holds an asset, and no reporting computer has the location of the room."
 msgstr "找不到設備：這個機房的機櫃上沒有設備，也沒有回報中的電腦位置設在這個機房。"
 
@@ -656,3 +726,167 @@ msgstr "目前的比對基準"
 #: templates/item_alerts.html.twig:67
 msgid "No baseline yet: it is recorded after the next inventory."
 msgstr "尚無比對基準：下次回報後會自動建立。"
+
+#: templates/racklabel.html.twig:56
+msgid "Print on A4, scale 100% (\"Default\" margins), with background graphics."
+msgstr "請用 A4 列印、縮放 100%（邊界「預設」），並勾選「背景圖形」。"
+
+#: templates/racklabel.html.twig:57
+msgid "QR codes unavailable: the bacon/bacon-qr-code library of GLPI was not found."
+msgstr "無法產生 QR code：找不到 GLPI 內建的 bacon/bacon-qr-code 函式庫。"
+
+#: templates/racklabel.html.twig:61
+msgid "No rack to print."
+msgstr "沒有可列印的機櫃。"
+
+#: templates/racklabel.html.twig:69
+msgid "In no server room"
+msgstr "未指定機房"
+
+#: templates/racklabel.html.twig:69 templates/roommap.html.twig:42 templates/roommap.html.twig:61
+msgid "%d asset(s)"
+msgstr "%d 台設備"
+
+#: templates/racklabel.html.twig:69
+msgid "Used: %1$d / %2$d U"
+msgstr "已用 %1$d / %2$d U"
+
+#: templates/racklabel.html.twig:70
+msgid "Printed on %s from GLPI. Scan a code to open the asset."
+msgstr "%s 從 GLPI 列印。掃 QR code 可開啟該設備。"
+
+#: templates/racklabel.html.twig:75
+msgid "Front view"
+msgstr "正面"
+
+#: templates/racklabel.html.twig:96
+msgid "Beyond the rack height: check its position in GLPI."
+msgstr "超出機櫃高度：請確認 GLPI 裡的 U 位。"
+
+#: templates/racklabel.html.twig:102
+msgid "Dashed frame = mounted at the rear. Heights come from the asset models (1U when not set)."
+msgstr "虛線框＝裝在背面。高度取自設備型號（沒設定的算 1U）。"
+
+#: templates/roommap.html.twig:44
+msgid "Power: no maximum set on the rack"
+msgstr "耗電：機櫃沒設最大功率"
+
+#: templates/roommap.html.twig:53
+msgid "Front of the rack"
+msgstr "機櫃正面方向"
+
+#: templates/roommap.html.twig:64
+msgid "Colour by"
+msgstr "上色依據"
+
+#: templates/roommap.html.twig:66
+msgid "Rack space"
+msgstr "U 佔用率"
+
+#: templates/roommap.html.twig:67
+msgid "Power"
+msgstr "耗電"
+
+#: templates/roommap.html.twig:70
+msgid "Rack labels"
+msgstr "機櫃標籤"
+
+#: templates/roommap.html.twig:79
+msgid "No rack in this room."
+msgstr "這個機房沒有機櫃。"
+
+#: templates/roommap.html.twig:91
+msgid "Not placed on the room grid (set the position of the rack in the room):"
+msgstr "沒有放在機房平面上（請設定機櫃在機房裡的位置）："
+
+#: templates/roommap.html.twig:96
+msgid "assets to check on site in the rack"
+msgstr "機櫃裡要到現場確認的設備台數"
+
+#: templates/roommap.html.twig:98
+msgid "rack units used (asset height from its model, 1U when not set)"
+msgstr "已使用的 U 數（設備高度取自型號，沒設定的算 1U）"
+
+#: templates/roommap.html.twig:100
+msgid "power consumption of the models vs the maximum power of the rack (— = no maximum set)"
+msgstr "型號耗電加總 ÷ 機櫃最大功率（— ＝機櫃沒設最大功率）"
+
+#: templates/roommap.html.twig:102
+msgid "%d computer(s) of this room are in no rack (not on the map)."
+msgstr "這個機房有 %d 台電腦沒上機櫃（不在平面圖上）。"
+
+#: templates/topology.html.twig:52
+msgid "Back to the drawing"
+msgstr "回到架構圖"
+
+#: templates/topology.html.twig:54 templates/topology.html.twig:272
+msgid "Edit connections"
+msgstr "編輯接線"
+
+#: templates/topology.html.twig:69
+msgid "Pick a server room to see which device is plugged into which network device. Connections come from the ports connected in GLPI (SNMP network inventory) and from the ones typed by hand with \"Edit connections\" (port optional)."
+msgstr "選一個機房，看每台設備接到哪台網路設備。接線來自 GLPI 裡已連接的連接埠（SNMP 網路盤點），以及用「編輯接線」手動填的（port 可不填）。"
+
+#: templates/topology.html.twig:75
+msgid "Network devices"
+msgstr "網路設備"
+
+#: templates/topology.html.twig:76
+msgid "Connected devices"
+msgstr "已記錄接線的設備"
+
+#: templates/topology.html.twig:77 templates/topology.html.twig:195 templates/topology.html.twig:271
+msgid "No connection recorded"
+msgstr "沒有接線紀錄"
+
+#: templates/topology.html.twig:78 templates/topology.html.twig:83
+msgid "Port used twice"
+msgstr "同一個 port 重複"
+
+#: templates/topology.html.twig:83
+msgid "several assets are recorded on the same port of a network device; one of the entries is probably out of date."
+msgstr "同一台網路設備的同一個 port 記錄了不只一台設備，其中可能有一筆已經過時。"
+
+#: templates/topology.html.twig:95
+msgid "For each asset, choose the network device it is plugged into (port optional) and save. Connections recorded by GLPI ports cannot be removed here; tick \"Remove\" to delete one typed by hand. Each change is written to the history of the asset."
+msgstr "每台設備選它接到哪台網路設備（port 可不填）後儲存。GLPI 連接埠的接線不能在這裡刪；手動填的勾「移除」即可刪除。每次變更都會寫進該設備的歷史紀錄。"
+
+#: templates/topology.html.twig:102
+msgid "Only the assets without connection"
+msgstr "只顯示沒有接線紀錄的設備"
+
+#: templates/topology.html.twig:112
+msgid "Asset"
+msgstr "設備"
+
+#: templates/topology.html.twig:114
+msgid "Current connections"
+msgstr "目前接線"
+
+#: templates/topology.html.twig:115
+msgid "Add a connection"
+msgstr "新增接線"
+
+#: templates/topology.html.twig:129
+msgid "Remove"
+msgstr "移除"
+
+#: templates/topology.html.twig:178
+msgid "No computer or network device in this selection."
+msgstr "這個範圍裡沒有電腦或網路設備。"
+
+#: templates/topology.html.twig:182
+msgid "Drawing"
+msgstr "架構圖"
+
+#: templates/topology.html.twig:186 templates/topology.html.twig:238
+msgid "Between network devices"
+msgstr "網路設備之間"
+
+#: templates/topology.html.twig:201 templates/topology.html.twig:232
+msgid "outside the selection"
+msgstr "不在目前範圍內"
+
+#: templates/topology.html.twig:218
+msgid "Box colour = Asset Watch status (green healthy, red offline, orange low disk, grey probably removed, white no agent). Dashed box = outside the selection. A device on several network devices sits under the first one, with a line to the others."
+msgstr "方框顏色＝Asset Watch 狀態（綠：正常、紅：離線、橘：硬碟空間不足、灰：疑似已下架、白：無 Agent）。虛線框＝不在目前範圍內。接了多台網路設備的設備放在第一台底下，另外畫線連到其他台。"

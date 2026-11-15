@@ -67,5 +67,17 @@ function plugin_assetwatch_computer_purged(CommonDBTM $item)
     if ($item instanceof Computer) {
         PluginAssetwatchSnapshot::purgeForComputer((int) $item->getID());
         PluginAssetwatchAlert::purgeForComputer((int) $item->getID());
+        PluginAssetwatchUplink::purgeForItem($item);
     }
+}
+
+/**
+ * Purge hook of the other assets that can be plugged into a network device: forget their
+ * connections typed by hand (and, for a network device, the connections made to it).
+ *
+ * @param CommonDBTM $item
+ */
+function plugin_assetwatch_linkable_purged(CommonDBTM $item)
+{
+    PluginAssetwatchUplink::purgeForItem($item);
 }

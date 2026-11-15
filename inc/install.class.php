@@ -73,7 +73,7 @@ class PluginAssetwatchInstall
         self::uninstallNotifications();
         PluginAssetwatchDashboard::uninstallDashboards();
 
-        $itemtypes = [PluginAssetwatchAlert::class, PluginAssetwatchDigest::class, PluginAssetwatchSnapshot::class];
+        $itemtypes = [PluginAssetwatchAlert::class, PluginAssetwatchDigest::class, PluginAssetwatchSnapshot::class, PluginAssetwatchUplink::class];
         foreach (['glpi_displaypreferences', 'glpi_savedsearches', 'glpi_logs', 'glpi_queuednotifications'] as $table) {
             if ($DB->tableExists($table)) {
                 $DB->delete($table, ['itemtype' => $itemtypes]);
@@ -90,6 +90,7 @@ class PluginAssetwatchInstall
             PluginAssetwatchAlert::getTable(),
             PluginAssetwatchSnapshot::getTable(),
             PluginAssetwatchDigest::getTable(),
+            PluginAssetwatchUplink::getTable(),
         ];
     }
 
@@ -173,6 +174,29 @@ class PluginAssetwatchInstall
                 PRIMARY KEY (`id`),
                 KEY `entities_id` (`entities_id`),
                 KEY `groups_id_tech` (`groups_id_tech`),
+                KEY `date_creation` (`date_creation`),
+                KEY `date_mod` (`date_mod`)
+            ) ENGINE=InnoDB DEFAULT CHARSET={$charset} COLLATE={$collation} ROW_FORMAT=DYNAMIC", $DB->error());
+        }
+
+        // 2.3: connections typed by hand (network topology page).
+        $table = PluginAssetwatchUplink::getTable();
+        if (!$DB->tableExists($table)) {
+            $migration->displayMessage("Creating $table");
+            $DB->doQueryOrDie("CREATE TABLE `$table` (
+                `id` int {$sign} NOT NULL AUTO_INCREMENT,
+                `itemtype` varchar(100) NOT NULL DEFAULT '',
+                `items_id` int {$sign} NOT NULL DEFAULT '0',
+                `networkequipments_id` int {$sign} NOT NULL DEFAULT '0',
+                `switch_port` varchar(255) NOT NULL DEFAULT '',
+                `device_port` varchar(255) NOT NULL DEFAULT '',
+                `users_id` int {$sign} NOT NULL DEFAULT '0',
+                `date_creation` timestamp NULL DEFAULT NULL,
+                `date_mod` timestamp NULL DEFAULT NULL,
+                PRIMARY KEY (`id`),
+                KEY `item` (`itemtype`, `items_id`),
+                KEY `networkequipments_id` (`networkequipments_id`),
+                KEY `users_id` (`users_id`),
                 KEY `date_creation` (`date_creation`),
                 KEY `date_mod` (`date_mod`)
             ) ENGINE=InnoDB DEFAULT CHARSET={$charset} COLLATE={$collation} ROW_FORMAT=DYNAMIC", $DB->error());

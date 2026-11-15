@@ -18,9 +18,10 @@ GLPI 11 外掛（GLPI 10 請用 1.x 版）。它會看 **GLPI Agent** 回報的�
 同一輪檢查的所有告警會依技術群組**合併成一封信**。所以交換器故障導致十台伺服器同時斷線時，只會收到一封信，而不是十封。
 GLPI 11 一台設備可以有**多個技術群組**：每個群組各自收到一封彙整信（只列自己負責的機器），單次事件信（硬體、身分、機櫃）會寄給該設備的所有技術群組。
 
-這個外掛只**讀取** GLPI 的資料，不會連到你的機器，也不會修改任何資產。
+這個外掛只**讀取** GLPI 的資料，不會連到你的機器，也不會修改任何資產（2.3 手動填寫的接線存在外掛自己的資料表，並在設備的歷史紀錄留一行）。
 
 2.2 起另有**機房盤點**頁（依機櫃列出每個機房的設備、即時狀態與到現場要確認的落差）和儀表板的**「機房」篩選**。
+2.3 起再加上每個機房的**平面圖**、可列印的**機櫃 QR code 標籤**，以及**網路架構圖**（哪台設備接到哪台 switch）。
 
 ## 需求與相容版本
 
@@ -65,12 +66,12 @@ docker exec -u www-data glpi_app php bin/console plugin:activate assetwatch
 
 這個外掛是純 PHP，不需要 Composer、沒有 `vendor/`，也不從 CDN 載入任何東西；翻譯檔（`.mo`）已經編譯好放在裡面。安裝和執行都不需要連網，只要把檔案帶進去就好。
 
-1. 在能上網的電腦，從 [Releases](https://github.com/chengyuchen-sideproject/glpi-assetwatch/releases) 頁面下載 `assetwatch-<版本>.tar.gz` 和對應的 `.sha256` 檔。也可以從原始碼自己打包：`git archive --format=tar.gz --prefix=assetwatch/ -o assetwatch-2.2.0.tar.gz v2.2.0`。不建議用 GitHub 的「Download ZIP」，解開後資料夾會叫 `glpi-assetwatch-main`，必須自己改名。
+1. 在能上網的電腦，從 [Releases](https://github.com/chengyuchen-sideproject/glpi-assetwatch/releases) 頁面下載 `assetwatch-<版本>.tar.gz` 和對應的 `.sha256` 檔。也可以從原始碼自己打包：`git archive --format=tar.gz --prefix=assetwatch/ -o assetwatch-2.3.0.tar.gz v2.3.0`。不建議用 GitHub 的「Download ZIP」，解開後資料夾會叫 `glpi-assetwatch-main`，必須自己改名。
 2. 把兩個檔案帶到 GLPI 主機上，執行：
 
    ```bash
-   sha256sum -c assetwatch-2.2.0.tar.gz.sha256
-   tar -xzf assetwatch-2.2.0.tar.gz -C ./glpi_plugins     # 會建立 glpi_plugins/assetwatch
+   sha256sum -c assetwatch-2.3.0.tar.gz.sha256
+   tar -xzf assetwatch-2.3.0.tar.gz -C ./glpi_plugins     # 會建立 glpi_plugins/assetwatch
    chmod -R a+rX ./glpi_plugins/assetwatch                # 讓容器內的 www-data（uid 33）讀得到
    ```
 
@@ -140,6 +141,20 @@ docker exec -u www-data glpi_app php bin/console plugin:activate assetwatch
 - 機房網段與「疑似已下架」天數：**設定 > 外掛 > Asset Watch** 的「機房盤點」區塊（一行一個網段，例如 `10.1.0.0/16`，IPv6 也可以；寫錯的會顯示出來並略過；空白＝不比對）。
 - 權限和告警列表相同（資產告警：讀取），只顯示目前實體的機房、機櫃與設備。唯讀，不寄信。
 
+### 機房平面圖與機櫃標籤（2.3 起）
+
+- **機房平面圖**：從上往下看機房，機櫃畫在它在機房裡的位置（GLPI 機櫃欄位「Position in room」，中文介面顯示為「机房中的位置」），依**到現場要確認的台數**（預設）、**U 佔用率**或**耗電**（型號耗電加總 ÷ 機櫃最大功率）上色。顯示在盤點頁每個機房的機櫃清單上方，以及每個機房的「**機房平面圖**」分頁。點機櫃會跳到它的清單。平面圖只畫到最後一個機櫃再多一格；沒設位置的機櫃列在圖下方。門檻：U 佔用 70% / 90%、耗電 60% / 80%、待確認 1 / 3 台。
+- **機櫃標籤**（每個機櫃和平面圖上的按鈕）：**每個機櫃一張 A4**，左邊是 U 位正面圖，右邊每台設備一個 **QR code**（掃了開 GLPI 的資產頁），可以貼在機櫃門上。用 100% 縮放並勾選「背景圖形」列印。設備高度取自型號的「Required units」（中文介面顯示為「需要數量」；沒設定的算 1U）。QR code 用的是 GLPI 網址（設定 > 一般 >「應用程式的URL」），手機要連得到；QR code 由 GLPI 內建的 `bacon/bacon-qr-code` 函式庫產生，不用另外裝套件。
+
+### 網路架構圖（2.3 起）
+
+**工具 > 網路架構圖**：選一個機房、整個資料中心或所有機房，看每台設備接到哪台網路設備：
+
+- **架構圖**：每台網路設備一欄（標出機櫃與 U 位），接在它上面的設備排在下方，網路設備之間的連線畫在上方；方框顏色＝Asset Watch 狀態。下面是每台網路設備的表格（port、設備、機櫃 / U、設備網卡、狀態、來源），以及**沒有任何接線紀錄**的電腦與網路設備。
+- 兩種來源會合併：**GLPI 連接埠**（GLPI 裡已連接的連接埠，例如 switch 做 SNMP 網路盤點時自動記錄，精確到 port），以及用「**編輯接線**」**手動填寫**的（選網路設備即可，switch port 與設備網卡可不填）。手動接線存在外掛自己的資料表 `glpi_plugin_assetwatch_uplinks`，每次新增 / 移除都會寫進該設備的歷史紀錄。編輯需要 GLPI 權限「網路設備：更新」。
+- **同一個 port 重複**：同一台網路設備的同一個 port 記錄了不只一台設備時會列出來。
+- **匯出 CSV**（每條接線一行，最後是沒有接線紀錄的設備）與**列印**。
+
 ### 自動動作
 
 | 名稱 | 頻率 | 工作 |
@@ -154,7 +169,7 @@ GLPI 沒有「inventory 匯入完成」的 hook，所以硬體和身分變動由
 
 | 異動 | 安裝時 | 移除外掛時 |
 |---|---|---|
-| 資料表 `glpi_plugin_assetwatch_alerts`、`_snapshots`、`_digests` | 建立 | 刪除 |
+| 資料表 `glpi_plugin_assetwatch_alerts`、`_snapshots`、`_digests`、`_uplinks`（2.3） | 建立 | 刪除 |
 | 設定值（context 為 `plugin:assetwatch`） | 寫入預設值，不覆蓋已存在的值 | 刪除 |
 | 權限 `plugin_assetwatch_alert`、`plugin_assetwatch_config` | 開給能修改 GLPI 設定的設定檔 | 刪除 |
 | 3 個自動動作 | 建立 | 刪除 |
