@@ -20,7 +20,7 @@ msgstr ""
 msgid "Configuration saved."
 msgstr ""
 
-#: inc/alert.class.php:52 inc/dashboard.class.php:58 inc/profile.class.php:23 inc/profile.class.php:68 templates/config.html.twig:8
+#: inc/alert.class.php:52 inc/dashboard.class.php:61 inc/profile.class.php:23 inc/profile.class.php:68 templates/config.html.twig:8
 msgid "Asset Watch"
 msgstr ""
 
@@ -32,7 +32,7 @@ msgstr ""
 msgid "No inventory"
 msgstr ""
 
-#: inc/alert.class.php:109 inc/dashboard.class.php:191 templates/config.html.twig:32
+#: inc/alert.class.php:109 inc/audit.class.php:573 inc/dashboard.class.php:207 templates/config.html.twig:32
 msgid "Low disk space"
 msgstr ""
 
@@ -150,71 +150,213 @@ msgid_plural "Asset alerts"
 msgstr[0] ""
 msgstr[1] ""
 
-#: inc/config.class.php:28
+#: inc/audit.class.php:36 templates/config.html.twig:101
+msgid "Datacenter inventory"
+msgstr ""
+
+#: inc/audit.class.php:108 templates/audit.html.twig:39 templates/audit.html.twig:120
+msgid "Computers in no rack and without location"
+msgstr ""
+
+#: inc/audit.class.php:111 templates/audit.html.twig:27
+msgid "All server rooms"
+msgstr ""
+
+#: inc/audit.class.php:572 inc/dashboard.class.php:205
+msgid "Healthy"
+msgstr "Healthy"
+
+#: inc/audit.class.php:574 inc/dashboard.class.php:206
+msgid "Offline"
+msgstr "Offline"
+
+#: inc/audit.class.php:575 inc/audit.class.php:592
+msgid "Probably removed"
+msgstr ""
+
+#: inc/audit.class.php:576
+msgid "No agent"
+msgstr ""
+
+#: inc/audit.class.php:588
+msgid "In a rack, never reported"
+msgstr ""
+
+#: inc/audit.class.php:589
+msgid "Computer placed in a rack but GLPI Agent never sent its inventory: agent not installed, or the machine is not there."
+msgstr ""
+
+#: inc/audit.class.php:593
+msgid "No inventory for %d days or more: check that it is still in the rack."
+msgstr ""
+
+#: inc/audit.class.php:596 inc/audit.class.php:637 inc/audit.class.php:694
+msgid "Not in a rack"
+msgstr ""
+
+#: inc/audit.class.php:597
+msgid "Reporting computer of this room (by location) that is placed in no rack."
+msgstr ""
+
+#: inc/audit.class.php:600
+msgid "Duplicate serial number"
+msgstr ""
+
+#: inc/audit.class.php:601
+msgid "Another asset of the same type has the same serial number (duplicate record?)."
+msgstr ""
+
+#: inc/audit.class.php:604
+msgid "No technical group"
+msgstr ""
+
+#: inc/audit.class.php:605
+msgid "Nobody receives the alerts of this computer."
+msgstr ""
+
+#: inc/audit.class.php:608
+msgid "Address outside the room networks"
+msgstr ""
+
+#: inc/audit.class.php:609
+msgid "None of its addresses is in the networks configured for the room (Setup > Plugins > Asset Watch)."
+msgstr ""
+
+#: inc/audit.class.php:626
+msgid "No datacenter"
+msgstr ""
+
+#: inc/audit.class.php:673
+msgid "Front"
+msgstr ""
+
+#: inc/audit.class.php:673
+msgid "Rear"
+msgstr ""
+
+#: inc/audit.class.php:678
+msgid "Datacenter"
+msgstr ""
+
+#: inc/audit.class.php:678 inc/roomfilter.class.php:27 templates/audit.html.twig:24
+msgid "Server room"
+msgstr ""
+
+#: inc/audit.class.php:678
+msgid "Rack"
+msgstr ""
+
+#: inc/audit.class.php:678
+msgid "Rack unit (U)"
+msgstr ""
+
+#: inc/audit.class.php:678
+msgid "Side"
+msgstr ""
+
+#: inc/audit.class.php:679
+msgid "Asset type"
+msgstr ""
+
+#: inc/audit.class.php:679
+msgid "Manufacturer"
+msgstr ""
+
+#: inc/audit.class.php:679 templates/audit.html.twig:136
+msgid "Model"
+msgstr ""
+
+#: inc/audit.class.php:680 templates/audit.html.twig:137
+msgid "IP addresses"
+msgstr ""
+
+#: inc/audit.class.php:680 templates/audit.html.twig:138
+msgid "Last inventory"
+msgstr ""
+
+#: inc/audit.class.php:681 templates/audit.html.twig:91
+msgid "Discrepancies"
+msgstr ""
+
+#: inc/audit.class.php:681 templates/audit.html.twig:139
+msgid "Technical groups"
+msgstr ""
+
+#: inc/audit.class.php:681 templates/audit.html.twig:140
+msgid "Hardware"
+msgstr ""
+
+#: inc/audit.class.php:687 templates/audit.html.twig:101
+msgid "%d other asset(s) with this serial"
+msgstr ""
+
+#: inc/audit.class.php:557
+msgid "%d drive"
+msgid_plural "%d drives"
+msgstr[0] ""
+msgstr[1] ""
+
+#: inc/config.class.php:29
 msgid "Asset Watch configuration"
 msgstr ""
 
-#: inc/config.class.php:114
+#: inc/config.class.php:134
 msgid "E-mail notifications are disabled in GLPI (Setup > Notifications): no alert will be sent."
 msgstr ""
 
-#: inc/config.class.php:120
+#: inc/config.class.php:140
 msgid "Automatic action %s is missing: reinstall the plugin."
 msgstr ""
 
-#: inc/config.class.php:124
+#: inc/config.class.php:144
 msgid "Automatic action %s is disabled."
 msgstr ""
 
-#: inc/config.class.php:126
+#: inc/config.class.php:146
 msgid "Automatic action %s runs in GLPI mode: it only runs when someone browses GLPI. Switch it to CLI."
 msgstr ""
 
-#: inc/config.class.php:147
+#: inc/config.class.php:167
 msgid "%d monitored computer has no technical group: its alerts are recorded but nobody is notified."
 msgid_plural "%d monitored computers have no technical group: their alerts are recorded but nobody is notified."
 msgstr[0] ""
 msgstr[1] ""
 
-#: inc/dashboard.class.php:65 inc/dashboard.class.php:128
+#: inc/dashboard.class.php:70 inc/dashboard.class.php:144
 msgid "Monitored computers"
 msgstr "Monitored computers"
 
-#: inc/dashboard.class.php:71 inc/dashboard.class.php:143
+#: inc/dashboard.class.php:76 inc/dashboard.class.php:159
 msgid "Offline computers (no inventory)"
 msgstr "Offline computers (no inventory)"
 
-#: inc/dashboard.class.php:77 inc/dashboard.class.php:158
+#: inc/dashboard.class.php:82 inc/dashboard.class.php:174
 msgid "Computers with low disk space"
 msgstr "Computers with low disk space"
 
-#: inc/dashboard.class.php:83 inc/dashboard.class.php:173
+#: inc/dashboard.class.php:88 inc/dashboard.class.php:189
 msgid "Open alerts"
 msgstr "Open alerts"
 
-#: inc/dashboard.class.php:89 inc/dashboard.class.php:196
+#: inc/dashboard.class.php:94 inc/dashboard.class.php:212
 msgid "Computer health"
 msgstr "Computer health"
 
-#: inc/dashboard.class.php:95 inc/dashboard.class.php:220
+#: inc/dashboard.class.php:100 inc/dashboard.class.php:236
 msgid "Open alerts by type"
 msgstr "Open alerts by type"
 
-#: inc/dashboard.class.php:102 inc/dashboard.class.php:237
+#: inc/dashboard.class.php:107 inc/dashboard.class.php:253
 msgid "Offline computers (list)"
 msgstr "Offline computers (list)"
 
-#: inc/dashboard.class.php:108 inc/dashboard.class.php:278
+#: inc/dashboard.class.php:113 inc/dashboard.class.php:297
 msgid "Change events (last %d days)"
 msgstr "Change events (last %d days)"
 
-#: inc/dashboard.class.php:189
-msgid "Healthy"
-msgstr "Healthy"
-
-#: inc/dashboard.class.php:190
-msgid "Offline"
-msgstr "Offline"
+#: inc/dashboard.class.php:119 inc/dashboard.class.php:324
+msgid "Assets to check on site (inventory)"
+msgstr ""
 
 #: inc/digest.class.php:25
 msgid "Asset Watch digest"
@@ -336,6 +478,62 @@ msgstr ""
 msgid "Resume reminders"
 msgstr ""
 
+#: templates/audit.html.twig:25
+msgid "Choose a server room…"
+msgstr ""
+
+#: templates/audit.html.twig:32
+msgid "Whole datacenter: %s"
+msgstr ""
+
+#: templates/audit.html.twig:41
+msgid "Show"
+msgstr ""
+
+#: templates/audit.html.twig:45
+msgid "Export CSV"
+msgstr ""
+
+#: templates/audit.html.twig:46
+msgid "Print"
+msgstr ""
+
+#: templates/audit.html.twig:53
+msgid "No server room yet. Create datacenters and server rooms in Assets > Datacenters, assign the racks to a room and set a location on the room."
+msgstr ""
+
+#: templates/audit.html.twig:58
+msgid "Pick a server room to list its assets rack by rack, with their status and what to check on site."
+msgstr ""
+
+#: templates/audit.html.twig:65
+msgid "Assets"
+msgstr ""
+
+#: templates/audit.html.twig:75
+msgid "To check on site"
+msgstr ""
+
+#: templates/audit.html.twig:86
+msgid "Nothing to check: GLPI matches what the agents report."
+msgstr ""
+
+#: templates/audit.html.twig:91
+msgid "Location"
+msgstr ""
+
+#: templates/audit.html.twig:109
+msgid "\"Probably removed\" = no inventory for %d days or more."
+msgstr ""
+
+#: templates/audit.html.twig:110
+msgid "Thresholds and room networks"
+msgstr ""
+
+#: templates/audit.html.twig:117
+msgid "No asset found: no rack of this room holds an asset, and no reporting computer has the location of the room."
+msgstr ""
+
 #: templates/config.html.twig:11
 msgid "Health check"
 msgstr ""
@@ -408,19 +606,43 @@ msgstr ""
 msgid "Ignored network interfaces (virtual / container), * wildcard"
 msgstr ""
 
-#: templates/config.html.twig:101
-msgid "Notifications and history"
+#: templates/config.html.twig:103
+msgid "Used by the inventory page (Tools > Datacenter inventory) and its dashboard card; no e-mail is sent."
+msgstr ""
+
+#: templates/config.html.twig:103
+msgid "Open the inventory page"
 msgstr ""
 
 #: templates/config.html.twig:105
+msgid "\"Probably removed\" after (days without inventory)"
+msgstr ""
+
+#: templates/config.html.twig:108
+msgid "Networks of each server room (one per line, e.g. 10.1.0.0/16; empty = not checked)"
+msgstr ""
+
+#: templates/config.html.twig:110
+msgid "No server room yet (Assets > Datacenters)."
+msgstr ""
+
+#: templates/config.html.twig:119
+msgid "Ignored (not a network): %s"
+msgstr ""
+
+#: templates/config.html.twig:130
+msgid "Notifications and history"
+msgstr ""
+
+#: templates/config.html.twig:134
 msgid "Reminder every (days, 0 = never)"
 msgstr ""
 
-#: templates/config.html.twig:109
+#: templates/config.html.twig:138
 msgid "Keep history (days)"
 msgstr ""
 
-#: templates/config.html.twig:114
+#: templates/config.html.twig:143
 msgid "Recipients and e-mail contents are managed in Setup > Notifications (notifications named \"Asset Watch - ...\")."
 msgstr ""
 

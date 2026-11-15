@@ -1,0 +1,168 @@
+{#
+ # Asset Watch - GLPI plugin
+ # Datacenter inventory page.
+ # @license GPL-3.0-or-later
+ #}
+
+<style>
+   .aw-audit .aw-u { width: 4rem; text-align: right; }
+   .aw-audit td { vertical-align: top; }
+   .aw-audit .aw-ips { font-family: var(--tblr-font-monospace, monospace); font-size: .85em; }
+   .aw-audit .table { margin-bottom: 0; }
+   @media print {
+      header, aside, .navbar, .aw-noprint, #page > .container-fluid > .row > .col-auto, footer { display: none !important; }
+      .aw-audit .card { break-inside: avoid; border: 1px solid #999; }
+      .aw-audit a { color: inherit; text-decoration: none; }
+      .page-wrapper, .page-body { margin: 0 !important; padding: 0 !important; }
+   }
+</style>
+
+<div class="container-fluid aw-audit">
+   <div class="d-flex flex-wrap align-items-center gap-2 my-3">
+      <h2 class="m-0 me-3"><i class="ti ti-clipboard-list me-2"></i>{{ title }}</h2>
+      <form method="get" action="{{ self_url }}" class="d-flex gap-2 aw-noprint">
+         <select name="scope" class="form-select" style="min-width: 18rem" onchange="this.form.submit()" aria-label="{{ __('Server room', 'assetwatch') }}">
+            <option value="">{{ __('Choose a server room…', 'assetwatch') }}</option>
+            {% if datacenters is not empty %}
+               <option value="all" {{ scope_key == 'all' ? 'selected' : '' }}>{{ __('All server rooms', 'assetwatch') }}</option>
+            {% endif %}
+            {% for dc_id, dc in datacenters %}
+               <optgroup label="{{ dc.name }}">
+                  {% if dc_id > 0 and dc.rooms|length > 1 %}
+                     <option value="dc:{{ dc_id }}" {{ scope_key == 'dc:' ~ dc_id ? 'selected' : '' }}>{{ __('Whole datacenter: %s', 'assetwatch')|format(dc.name) }}</option>
+                  {% endif %}
+                  {% for room in dc.rooms %}
+                     <option value="room:{{ room.id }}" {{ scope_key == 'room:' ~ room.id ? 'selected' : '' }}>{{ room.name }}</option>
+                  {% endfor %}
+               </optgroup>
+            {% endfor %}
+            <option value="unassigned" {{ scope_key == 'unassigned' ? 'selected' : '' }}>{{ __('Computers in no rack and without location', 'assetwatch') }}</option>
+         </select>
+         <noscript><button class="btn btn-primary" type="submit">{{ __('Show', 'assetwatch') }}</button></noscript>
+      </form>
+      {% if result is not null %}
+         <div class="ms-auto d-flex gap-2 aw-noprint">
+            <a class="btn btn-outline-secondary" href="{{ self_url }}?scope={{ scope_key|url_encode }}&amp;export=csv"><i class="ti ti-file-spreadsheet me-1"></i>{{ __('Export CSV', 'assetwatch') }}</a>
+            <button type="button" class="btn btn-outline-secondary" onclick="window.print()"><i class="ti ti-printer me-1"></i>{{ __('Print', 'assetwatch') }}</button>
+         </div>
+      {% endif %}
+   </div>
+
+   {% if datacenters is empty %}
+      <div class="alert alert-info">
+         {{ __('No server room yet. Create datacenters and server rooms in Assets > Datacenters, assign the racks to a room and set a location on the room.', 'assetwatch') }}
+         <a href="{{ datacenter_url }}">{{ datacenter_label }}</a>
+      </div>
+   {% elseif result is null %}
+      <div class="alert alert-info">
+         {{ __('Pick a server room to list its assets rack by rack, with their status and what to check on site.', 'assetwatch') }}
+      </div>
+   {% else %}
+      <h3 class="mb-2">{{ scope.label }} <small class="text-muted">{{ 'now'|date('Y-m-d H:i') }}</small></h3>
+
+      {# Summary #}
+      <div class="d-flex flex-wrap gap-2 mb-3">
+         <span class="badge bg-blue-lt fs-5 p-2">{{ __('Assets', 'assetwatch') }}: {{ result.items|length }}</span>
+         {% for status, info in status_labels %}
+            <span class="badge bg-{{ info.color }}{{ info.color in ['success', 'danger', 'warning', 'secondary'] ? '-lt' : '' }} fs-5 p-2">{{ info.label }}: {{ result.status_counts[status] }}</span>
+         {% endfor %}
+      </div>
+
+      {# Discrepancies #}
+      <div class="card mb-3">
+         <div class="card-header">
+            <h3 class="card-title">
+               <i class="ti ti-alert-triangle me-1"></i>{{ __('To check on site', 'assetwatch') }}
+               <span class="badge {{ result.items_with_issues > 0 ? 'bg-orange' : 'bg-green' }} ms-1">{{ result.items_with_issues }}</span>
+            </h3>
+         </div>
+         <div class="card-body">
+            <div class="d-flex flex-wrap gap-2 mb-2">
+               {% for issue, info in issue_labels %}
+                  <span class="badge {{ result.issue_counts[issue] > 0 ? 'bg-orange-lt' : 'bg-secondary-lt' }}" title="{{ info.help }}">{{ info.label }}: {{ result.issue_counts[issue] }}</span>
+               {% endfor %}
+            </div>
+            {% if result.items_with_issues == 0 %}
+               <p class="text-success mb-0">{{ __('Nothing to check: GLPI matches what the agents report.', 'assetwatch') }}</p>
+            {% else %}
+               <div class="table-responsive">
+               <table class="table table-sm table-hover">
+                  <thead><tr>
+                     <th>{{ __('Location', 'assetwatch') }}</th><th>{{ __('Name') }}</th><th>{{ __('Serial number') }}</th><th>{{ __('Discrepancies', 'assetwatch') }}</th>
+                  </tr></thead>
+                  <tbody>
+                  {% for item in result.items|filter(i => i.issues is not empty) %}
+                     <tr>
+                        <td class="text-nowrap">{{ item.room }}{% if item.racked %} / {{ item.rack }} U{{ item.position }}{% endif %}</td>
+                        <td><a href="{{ item.url }}">{{ item.name ?: '(' ~ item.id ~ ')' }}</a> <small class="text-muted">{{ item.type_label }}</small></td>
+                        <td class="text-nowrap">{{ item.serial }}</td>
+                        <td>
+                           {% for issue, detail in item.issues %}
+                              <div title="{{ issue_labels[issue].help }}"><span class="badge bg-orange-lt">{{ issue_labels[issue].label }}</span> <small class="text-muted">{{ issue == 'duplicate_serial' ? __('%d other asset(s) with this serial', 'assetwatch')|format(detail) : detail }}</small></div>
+                           {% endfor %}
+                        </td>
+                     </tr>
+                  {% endfor %}
+                  </tbody>
+               </table>
+               </div>
+               <p class="text-muted small mb-0 mt-2">{{ __('"Probably removed" = no inventory for %d days or more.', 'assetwatch')|format(retire_days) }}
+                  {% if can_config %}<a class="aw-noprint" href="{{ config_url }}">{{ __('Thresholds and room networks', 'assetwatch') }}</a>{% endif %}</p>
+            {% endif %}
+         </div>
+      </div>
+
+      {# Racks #}
+      {% if groups is empty %}
+         <div class="alert alert-warning">{{ __('No asset found: no rack of this room holds an asset, and no reporting computer has the location of the room.', 'assetwatch') }}</div>
+      {% endif %}
+      {% for room in groups %}
+         {% if groups|length > 1 or scope.unassigned %}<h3 class="mt-4 mb-2">{{ room.label ?: __('Computers in no rack and without location', 'assetwatch') }}</h3>{% endif %}
+         {% for rack in room.racks %}
+            <div class="card mb-3">
+               <div class="card-header">
+                  <h3 class="card-title">
+                     <i class="ti {{ rack.racked ? 'ti-server' : 'ti-question-mark' }} me-1"></i>{{ rack.label }}
+                     <span class="badge bg-secondary-lt ms-1">{{ rack.items|length }}</span>
+                  </h3>
+               </div>
+               <div class="table-responsive">
+               <table class="table table-sm table-striped card-table">
+                  <thead><tr>
+                     {% if rack.racked %}<th class="aw-u">U</th>{% endif %}
+                     <th>{{ __('Name') }}</th>
+                     <th>{{ __('Status') }}</th>
+                     <th>{{ __('Serial number') }}</th>
+                     <th>{{ __('Model', 'assetwatch') }}</th>
+                     <th>{{ __('IP addresses', 'assetwatch') }}</th>
+                     <th>{{ __('Last inventory', 'assetwatch') }}</th>
+                     <th>{{ __('Technical groups', 'assetwatch') }}</th>
+                     <th>{{ __('Hardware', 'assetwatch') }}</th>
+                  </tr></thead>
+                  <tbody>
+                  {% for item in rack.items %}
+                     {% set st = status_labels[item.status] %}
+                     <tr>
+                        {% if rack.racked %}<td class="aw-u">{{ item.position }}</td>{% endif %}
+                        <td>
+                           <a href="{{ item.url }}">{{ item.name ?: '(' ~ item.id ~ ')' }}</a>
+                           <div class="small text-muted">{{ item.type_label }}</div>
+                           {% for issue, detail in item.issues %}<span class="badge bg-orange-lt me-1" title="{{ issue_labels[issue].help }}">{{ issue_labels[issue].label }}</span>{% endfor %}
+                        </td>
+                        <td class="text-nowrap"><span class="badge bg-{{ st.color }}{{ st.color in ['success', 'danger', 'warning', 'secondary'] ? '-lt' : '' }}">{{ st.label }}</span></td>
+                        <td class="text-nowrap">{{ item.serial }}</td>
+                        <td>{{ item.manufacturer }} {{ item.model }}</td>
+                        <td class="aw-ips">{{ item.ips|join(' ') }}</td>
+                        <td class="text-nowrap">{{ item.last_inventory ? item.last_inventory|slice(0, 16) : '—' }}</td>
+                        <td>{{ item.tech_groups|join(', ') }}</td>
+                        <td class="small">{{ item.spec }}</td>
+                     </tr>
+                  {% endfor %}
+                  </tbody>
+               </table>
+               </div>
+            </div>
+         {% endfor %}
+      {% endfor %}
+   {% endif %}
+</div>

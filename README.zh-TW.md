@@ -20,6 +20,8 @@ GLPI 11 一台設備可以有**多個技術群組**：每個群組各自收到�
 
 這個外掛只**讀取** GLPI 的資料，不會連到你的機器，也不會修改任何資產。
 
+2.2 起另有**機房盤點**頁（依機櫃列出每個機房的設備、即時狀態與到現場要確認的落差）和儀表板的**「機房」篩選**。
+
 ## 需求與相容版本
 
 | | 支援範圍 | 實測版本 |
@@ -63,12 +65,12 @@ docker exec -u www-data glpi_app php bin/console plugin:activate assetwatch
 
 這個外掛是純 PHP，不需要 Composer、沒有 `vendor/`，也不從 CDN 載入任何東西；翻譯檔（`.mo`）已經編譯好放在裡面。安裝和執行都不需要連網，只要把檔案帶進去就好。
 
-1. 在能上網的電腦，從 [Releases](https://github.com/chengyuchen-sideproject/glpi-assetwatch/releases) 頁面下載 `assetwatch-<版本>.tar.gz` 和對應的 `.sha256` 檔。也可以從原始碼自己打包：`git archive --format=tar.gz --prefix=assetwatch/ -o assetwatch-2.1.0.tar.gz v2.1.0`。不建議用 GitHub 的「Download ZIP」，解開後資料夾會叫 `glpi-assetwatch-main`，必須自己改名。
+1. 在能上網的電腦，從 [Releases](https://github.com/chengyuchen-sideproject/glpi-assetwatch/releases) 頁面下載 `assetwatch-<版本>.tar.gz` 和對應的 `.sha256` 檔。也可以從原始碼自己打包：`git archive --format=tar.gz --prefix=assetwatch/ -o assetwatch-2.2.0.tar.gz v2.2.0`。不建議用 GitHub 的「Download ZIP」，解開後資料夾會叫 `glpi-assetwatch-main`，必須自己改名。
 2. 把兩個檔案帶到 GLPI 主機上，執行：
 
    ```bash
-   sha256sum -c assetwatch-2.1.0.tar.gz.sha256
-   tar -xzf assetwatch-2.1.0.tar.gz -C ./glpi_plugins     # 會建立 glpi_plugins/assetwatch
+   sha256sum -c assetwatch-2.2.0.tar.gz.sha256
+   tar -xzf assetwatch-2.2.0.tar.gz -C ./glpi_plugins     # 會建立 glpi_plugins/assetwatch
    chmod -R a+rX ./glpi_plugins/assetwatch                # 讓容器內的 www-data（uid 33）讀得到
    ```
 
@@ -109,9 +111,34 @@ docker exec -u www-data glpi_app php bin/console plugin:activate assetwatch
 | 進行中告警（依類型） | 同上 | 沒回報、硬碟 | 對應列表 |
 | 離線電腦清單 | 搜尋清單 | 哪幾台離線、多久沒回報、負責群組 | — |
 | 變動事件（最近 30 天） | 長條／折線 | 每天的硬體、身分、機櫃變動數；卡片的「上限」= 顯示最近幾天 | — |
+| 需要到現場確認的設備（盤點）（2.2） | 大數字 | 篩選的機房（或所有機房）中有落差的設備數 | 盤點頁 |
 
 - 數字依目前選的**實體**計算；沒有「資產告警：讀取」權限的人看不到這些卡片（安裝時只把「Asset Watch」儀表板開給有這個權限的設定檔）。
 - 「Asset Watch」儀表板只在第一次安裝時建立，之後你改過的版面不會被覆蓋。
+- **篩選**（2.2 起）：卡片會跟著儀表板上適用於電腦的篩選條件變化，包括 GLPI 內建的「位置」、「技術群組」、「狀態」、「製造商」等，以及外掛提供的**「機房」**篩選（該機房機櫃上的設備，加上位置屬於該機房的電腦）。在儀表板工具列按篩選圖示加入；GLPI 自己的電腦、網路設備、PDU 等卡片也能用。設了篩選時，告警類卡片只計算電腦的告警。
+- **需要到現場確認的設備**（2.2）：有落差的設備數（見下方「機房盤點」），依「機房」篩選或所有機房計算，點下去開盤點頁。已經存在的「Asset Watch」儀表板不會自動加這張卡片，請用「編輯」>「+」加入。
+
+### 機房盤點（2.2 起）
+
+**工具 > 機房盤點**：一頁看完一個機房實際有什麼，盤點或進機房前用。可以選單一機房、整個資料中心、所有機房，或「沒上機櫃也沒設位置的電腦」：
+
+- **依機櫃列出，U 位由上往下**：放在該機房機櫃上的所有設備（電腦、網路設備、PDU、機箱、被動設備等），顯示類型、序號、型號、IP、最後回報、技術群組，以及硬體摘要（記憶體、CPU、硬碟數，取自外掛的比對基準）。
+- 每台設備一個**狀態**：正常、硬碟空間不足、離線（沒回報門檻）、**疑似已下架**（超過 **30 天**沒回報，可調）、無 Agent（從沒回報過；PDU、被動設備本來就是這樣）。
+- **「到現場要確認」清單**，列出落差：
+
+| 落差 | 意思 |
+|---|---|
+| 在機櫃上但從沒回報 | 電腦放在機櫃上，GLPI Agent 卻從沒回報過 |
+| 疑似已下架 | 最後回報超過門檻天數 |
+| 沒上機櫃 | 位置屬於這個機房（含子位置）、有在回報，但沒放進任何機櫃的電腦 |
+| 序號重複 | 另一筆同類型資產有相同序號 |
+| 沒有技術群組 | 這台電腦的告警沒有人會收到 |
+| IP 不在機房網段內 | 它的 IP 都不在這個機房設定的網段內（電腦、網路設備） |
+
+- **匯出 CSV**（UTF-8 含 BOM，Excel 直接開不會亂碼）與**列印**（列印時隱藏 GLPI 選單）。
+- 一個機房包含：**它的機櫃上的設備**，加上位置是機房位置（或其子位置）、有在回報但沒上機櫃的電腦（符合多個機房時取位置最深的那個）。要用後者，請在每個機房設定「位置」（資產 > 資料中心 > 機房）。
+- 機房網段與「疑似已下架」天數：**設定 > 外掛 > Asset Watch** 的「機房盤點」區塊（一行一個網段，例如 `10.1.0.0/16`，IPv6 也可以；寫錯的會顯示出來並略過；空白＝不比對）。
+- 權限和告警列表相同（資產告警：讀取），只顯示目前實體的機房、機櫃與設備。唯讀，不寄信。
 
 ### 自動動作
 

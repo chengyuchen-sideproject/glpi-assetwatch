@@ -98,7 +98,8 @@ log "Reset plugin data, Mailpit and test machines"
 sql "DELETE FROM glpi_items_racks WHERE itemtype='Computer' AND items_id IN (SELECT id FROM glpi_computers WHERE name IN ('aw-web01','aw-web02','aw-win01'));"
 # Leftover machines from a previous run carry changed IP/MAC; the image's background
 # cron could baseline that old state mid-run and raise a spurious identity alert.
-glpi_action purge aw-web01 aw-web02 aw-win01
+glpi_action purge aw-web01 aw-web02 aw-win01 aw-aud01 aw-aud02 aw-aud03 aw-aud04
+glpi_action audit-cleanup
 sql "DELETE FROM glpi_plugin_assetwatch_alerts; DELETE FROM glpi_plugin_assetwatch_snapshots; DELETE FROM glpi_plugin_assetwatch_digests; DELETE FROM glpi_queuednotifications;"
 curl -s -X DELETE http://localhost:8025/api/v1/messages >/dev/null
 
@@ -217,6 +218,49 @@ print('\n'.join('  | ' + line for line in m.get('Text', '').strip().splitlines()
 done
 restore_language
 
+log "11b. Datacenter inventory: rooms, racks, discrepancies, room networks, dashboard filter"
+sql "UPDATE glpi_users SET language=NULL WHERE name='glpi';"
+glpi_action audit-cleanup
+glpi_action purge aw-aud01 aw-aud02 aw-aud03
+agent aw-aud01 --ip 10.1.5.11
+agent aw-aud02 --ip 10.1.5.12
+agent aw-aud03 --ip 10.1.5.13
+# aw-aud03: last report 40 days ago = "probably removed" (default 30 days)
+cron AssetwatchChanges   # baselines = hardware summary of the inventory page
+sql "UPDATE glpi_computers SET last_inventory_update = NOW() - INTERVAL 40 DAY WHERE name='aw-aud03';"
+FIXTURE=$(glpi_action audit-fixture)
+ROOM_A=$(echo "$FIXTURE" | py -c "import json,sys; print(json.load(sys.stdin)['rooms']['AW Room A'])")
+ROOM_B=$(echo "$FIXTURE" | py -c "import json,sys; print(json.load(sys.stdin)['rooms']['AW Room B'])")
+DC_ID=$(sql "SELECT id FROM glpi_datacenters WHERE name='AW DC'")
+sql "UPDATE glpi_configs SET value='{\"$ROOM_A\":\"10.1.0.0/16\",\"$ROOM_B\":\"172.16.0.0/12\"}' WHERE context='plugin:assetwatch' AND name='room_subnets';"
+AUDIT=$(glpi_action audit-json "dc:$DC_ID")
+aj() { echo "$AUDIT" | py -c "import json,sys; d=json.load(sys.stdin); print($1)"; }
+expect "6 assets in the datacenter (5 racked + 1 by location)" 6 "$(aj "len(d['rows'])")"
+expect "rack order: top U first in AW-RA1" "aw-sw01,aw-ghost,aw-aud01,aw-pdu01" "$(aj "','.join(n for n, r in d['rows'].items() if r['rack'] == 'AW-RA1')")"
+expect "statuses" "ok=2 retired=1 no_agent=3" "$(aj "' '.join(f'{k}={v}' for k, v in d['status'].items() if v)")"
+expect "manual computer in a rack: never reported" "never_reported,duplicate_serial,no_tech_group" "$(aj "','.join(d['rows']['aw-ghost']['issues'])")"
+expect "switch and PDU without agent: no discrepancy" "[] []" "$(aj "str(d['rows']['aw-sw01']['issues']) + ' ' + str(d['rows']['aw-pdu01']['issues'])")"
+expect "computer of room A by location, in no rack" "AW Room A unracked" "$(aj "d['rows']['aw-aud02']['room'] + ' ' + d['rows']['aw-aud02']['issues'][0]")"
+expect "40 days without report: probably removed" "retired" "$(aj "d['rows']['aw-aud03']['status']")"
+expect "room B expects 172.16/12: 10.1.5.13 flagged" "10.1.5.13" "$(aj "','.join(d['rows']['aw-aud03']['ips']) if 'subnet_mismatch' in d['rows']['aw-aud03']['issues'] else 'none'")"
+expect "room A networks match: no subnet issue" 0 "$(aj "sum('subnet_mismatch' in r['issues'] for n, r in d['rows'].items() if r['room'] == 'AW Room A')")"
+expect "hardware summary from the snapshot" "32 GB" "$(aj "d['rows']['aw-aud01']['spec'][:5]")"
+expect "unassigned scope lists computers without rack nor location" 0 "$(glpi_action audit-json unassigned | py -c "import json,sys; d=json.load(sys.stdin); print(sum(n.startswith('aw-aud') for n in d['rows']))")"
+card_number() { glpi_action card "$@" | py -c "import json,sys; print(json.load(sys.stdin)['number'])"; }
+expect "monitored card, room A filter" 2 "$(card_number monitored "plugin_assetwatch_dcroom=$ROOM_A")"
+expect "monitored card, room B filter" 1 "$(card_number monitored "plugin_assetwatch_dcroom=$ROOM_B")"
+expect "audit card, room A filter (ghost, aud01, aud02)" 3 "$(card_number auditIssues "plugin_assetwatch_dcroom=$ROOM_A")"
+if py "$DEV_DIR/ui_smoke.py" --audit "$ROOM_A" "$ROOM_B" "$DC_ID"; then
+    PASS=$((PASS + 1))
+else
+    FAIL=$((FAIL + 1))
+fi
+# leave no trace for the later steps
+glpi_action audit-cleanup
+glpi_action purge aw-aud01 aw-aud02 aw-aud03
+sql "UPDATE glpi_configs SET value='{}' WHERE context='plugin:assetwatch' AND name='room_subnets';"
+restore_language
+
 log "12. No PHP error mentioning the plugin"
 ERRORS=$("${COMPOSE[@]}" exec -T glpi sh -c 'cat /var/glpi/logs/php-errors.log 2>/dev/null | grep -ci assetwatch' || true)
 expect "php-errors.log clean" 0 "${ERRORS:-0}"
@@ -252,7 +296,7 @@ expect "plugin cards removed from every dashboard" 0 "$(sql "SELECT COUNT(*) FRO
 "${COMPOSE[@]}" exec -T glpi php bin/console plugin:activate assetwatch >/dev/null
 expect "reinstall: 4 notifications" 4 "$(sql "SELECT COUNT(*) FROM glpi_notifications WHERE itemtype LIKE 'PluginAssetwatch%'")"
 expect "reinstall: 3 automatic actions in CLI mode" 3 "$(sql "SELECT COUNT(*) FROM glpi_crontasks WHERE itemtype LIKE 'PluginAssetwatch%' AND mode=2")"
-expect "reinstall: dashboard with 8 cards" 8 "$(sql "SELECT COUNT(*) FROM glpi_dashboards_items i JOIN glpi_dashboards_dashboards d ON d.id=i.dashboards_dashboards_id WHERE d.\`key\`='asset-watch'")"
+expect "reinstall: dashboard with 9 cards" 9 "$(sql "SELECT COUNT(*) FROM glpi_dashboards_items i JOIN glpi_dashboards_dashboards d ON d.id=i.dashboards_dashboards_id WHERE d.\`key\`='asset-watch'")"
 expect "reinstall: dashboard visible to Super-Admin" 1 "$(sql "SELECT COUNT(*) FROM glpi_dashboards_rights r JOIN glpi_dashboards_dashboards d ON d.id=r.dashboards_dashboards_id JOIN glpi_profiles p ON p.id=r.items_id AND r.itemtype='Profile' WHERE d.\`key\`='asset-watch' AND p.name='Super-Admin'")"
 expect "reinstall: Super-Admin has full alert rights" 257 "$(sql "SELECT pr.rights FROM glpi_profilerights pr JOIN glpi_profiles p ON p.id=pr.profiles_id WHERE p.name='Super-Admin' AND pr.name='plugin_assetwatch_alert'")"
 "${COMPOSE[@]}" exec -T glpi php bin/console plugin:install --username=glpi --force assetwatch >/dev/null

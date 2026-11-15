@@ -33,6 +33,10 @@ final class Settings
         'port_excluded_patterns' => 'lo,lo0,docker*,veth*,br-*,virbr*,vnet*,tun*,tap*,cni*,flannel*,cali*,vEthernet*,Loopback*,isatap*,Teredo*,*Pseudo-Interface*',
         'reminder_days'          => '3',
         'retention_days'         => '180',
+        // Datacenter inventory: last report older than this = "probably removed"
+        'retire_days'            => '30',
+        // JSON object: {"<dcrooms_id>": "10.1.0.0/16,10.2.5.0/24"}
+        'room_subnets'           => '{}',
     ];
 
     public bool $checkNoReport;
@@ -53,6 +57,9 @@ final class Settings
     public array $portExcludedPatterns;
     public int $reminderDays;
     public int $retentionDays;
+    public int $retireDays;
+    /** @var array<int, string> dcrooms_id => network list as typed (comma separated) */
+    public array $roomSubnets;
 
     /**
      * @param array<string, mixed> $values
@@ -75,6 +82,8 @@ final class Settings
         $s->portExcludedPatterns = self::splitList((string) $v['port_excluded_patterns']);
         $s->reminderDays         = self::toInt($v['reminder_days'], 0, 365, 3);
         $s->retentionDays        = self::toInt($v['retention_days'], 1, 3650, 180);
+        $s->retireDays           = self::toInt($v['retire_days'], 1, 3650, 30);
+        $s->roomSubnets          = self::parseRoomSubnets((string) $v['room_subnets']);
         return $s;
     }
 
@@ -113,6 +122,41 @@ final class Settings
         foreach ($decoded as $type => $hours) {
             if (is_numeric($type) && is_numeric($hours) && (int) $type > 0 && (int) $hours > 0) {
                 $result[(int) $type] = (int) $hours;
+            }
+        }
+        return $result;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    public static function parseRoomSubnets(string $json): array
+    {
+        $decoded = json_decode($json, true);
+        if (!is_array($decoded)) {
+            return [];
+        }
+        $result = [];
+        foreach ($decoded as $room => $list) {
+            if (is_numeric($room) && (int) $room > 0 && is_string($list) && trim($list) !== '') {
+                $result[(int) $room] = implode(',', self::splitList($list));
+            }
+        }
+        return $result;
+    }
+
+    /**
+     * Parsed networks per room (invalid entries are dropped; the form reports them).
+     *
+     * @return array<int, array<int, array{bytes: string, prefix: int, text: string}>>
+     */
+    public function roomNetworks(): array
+    {
+        $result = [];
+        foreach ($this->roomSubnets as $room => $list) {
+            $networks = Cidr::parseList($list)['networks'];
+            if ($networks !== []) {
+                $result[$room] = $networks;
             }
         }
         return $result;

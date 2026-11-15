@@ -64,15 +64,119 @@ def page_ok(name, status, html, marker):
     check(name, not problems, ", ".join(problems))
 
 
+def card(c, card_id, widget, filters=None):
+    params = {
+        "action": "get_card", "dashboard": "asset-watch", "card_id": f"plugin_assetwatch_{card_id}",
+        # the web UI always sends a color; the list widget fails without one
+        "args[widgettype]": widget, "args[limit]": 30, "args[color]": "#ffffff", "force": 1,
+    }
+    for key, value in (filters or {}).items():
+        params[f"args[apply_filters][{key}]"] = value
+    return c.get(f"/ajax/dashboard.php?{urllib.parse.urlencode(params)}", ajax=True)
+
+
+def big_number(html):
+    # bigNumber widget: <a class="card big-number ..."> ... <span class="number">N</span>
+    m = re.search(r'big-number.*?<span class="number">\s*([^<]+?)\s*</span>', html, re.S)
+    return m.group(1).strip() if m else "?"
+
+
+def audit_checks(c, room_a, room_b, dc_id):
+    """2.2: datacenter inventory page, CSV, room networks setting, "Server room" dashboard filter."""
+    plugin = "/plugins/assetwatch/front"
+    status, html = c.get(f"{plugin}/audit.php")
+    page_ok("inventory page (no room chosen)", status, html, f'value="room:{room_a}"')
+    check("inventory page offers the whole datacenter", f'value="dc:{dc_id}"' in html, "dc option missing")
+    status, html = c.get(f"/front/central.php")
+    check("Tools menu links the inventory page", "/plugins/assetwatch/front/audit.php" in html, "menu entry missing")
+
+    status, html = c.get(f"{plugin}/audit.php?scope=dc:{dc_id}")
+    page_ok("inventory page (datacenter)", status, html, "aw-ghost")
+    for marker in ("AW-RA1", "AW-RB1", "In a rack, never reported", "Duplicate serial number", "Not in a rack",
+                   "Probably removed", "Address outside the room networks", "32 GB"):
+        check(f"inventory page shows '{marker}'", marker in html, "not found")
+    # rack AW-RA1 lists the top of the rack first: switch U42, ghost U20, aud01 U10, PDU U1
+    rack_part = html[html.find('ti-server me-1"></i>AW-RA1'):]
+    order = [rack_part.find(n) for n in ("aw-sw01", "aw-ghost", "aw-aud01", "aw-pdu01")]
+    check("rack listed from the top U down", all(o >= 0 for o in order) and order == sorted(order), str(order))
+
+    status, csv = c.get(f"{plugin}/audit.php?scope=room:{room_a}&export=csv")
+    check("CSV export", status == 200 and csv.startswith("﻿") and "aw-ghost" in csv and "AW-RB1" not in csv,
+          f"HTTP {status}, {csv[:60]!r}")
+    check("CSV has one line per asset of the room (+ header)", len(csv.strip().splitlines()) == 1 + 5,
+          f"{len(csv.strip().splitlines())} lines")
+    status, html = c.get(f"{plugin}/audit.php?scope=room:999999")
+    page_ok("unknown room falls back to the chooser", status, html, "Pick a server room")
+
+    # Room networks + "probably removed" threshold in the configuration page.
+    status, html = c.get(f"{plugin}/config.form.php")
+    page_ok("configuration page lists the rooms", status, html, f'name="room_subnets[{room_a}]"')
+    form = {
+        "_glpi_csrf_token": csrf(html), "update": "1",
+        "check_noreport": "1", "check_disk": "1", "check_hardware": "1", "check_identity": "1", "check_rack": "1",
+        "retire_days": "45",
+        f"room_subnets[{room_a}]": "10.1.0.0/16\nbogus",
+        f"room_subnets[{room_b}]": "172.16.0.0/12",
+    }
+    c.post(f"{plugin}/config.form.php", form)
+    status, html = c.get(f"{plugin}/config.form.php")
+    check("room networks saved, invalid entry reported",
+          "10.1.0.0/16" in html and "Ignored (not a network): bogus" in html and 'value="45"' in html, "not found")
+    form.update({"_glpi_csrf_token": csrf(html), "retire_days": "30", f"room_subnets[{room_a}]": "10.1.0.0/16"})
+    c.post(f"{plugin}/config.form.php", form)
+
+    # Dashboard: the filter renders, and cards follow it.
+    status, html = c.get("/ajax/dashboard.php?action=get_filter&filter_id=plugin_assetwatch_dcroom", ajax=True)
+    page_ok("'Server room' dashboard filter", status, html, "plugin_assetwatch_dcroom")
+    status, html = card(c, "auditissues", "bigNumber")
+    page_ok("dashboard card auditissues (bigNumber)", status, html, "Assets to check on site")
+    status, html = card(c, "monitored", "bigNumber", {"plugin_assetwatch_dcroom": room_a})
+    check("monitored card filtered by room A = 2", big_number(html) == "2", big_number(html))
+    status, html = card(c, "auditissues", "bigNumber", {"plugin_assetwatch_dcroom": room_b})
+    check("auditissues card filtered by room B = 1", big_number(html) == "1", big_number(html))
+    status, html = card(c, "offlinelist", "searchShowList", {"plugin_assetwatch_dcroom": room_a})
+    page_ok("offline list card with room filter", status, html, "Offline computers (list)")
+
+
+def login(c):
+    status, html = c.get("/index.php")
+    name_field = re.search(r'id="login_name" name="([^"]+)"', html)
+    pass_field = re.search(r'id="login_password" name="([^"]+)"', html)
+    if not (name_field and pass_field):
+        return False
+    c.post("/front/login.php", {
+        name_field.group(1): "glpi",
+        pass_field.group(1): "glpi",
+        "noAUTO": "1",
+        "redirect": "",
+        "_glpi_csrf_token": csrf(html),
+        "submit": "",
+    })
+    status, html = c.get("/front/central.php")
+    check("login as glpi", status == 200 and "logout" in html.lower(), f"HTTP {status}")
+    return True
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--base", default="http://localhost:8080")
-    parser.add_argument("--alert-id", type=int, required=True)
-    parser.add_argument("--computer-id", type=int, required=True)
+    parser.add_argument("--alert-id", type=int)
+    parser.add_argument("--computer-id", type=int)
     parser.add_argument("--profile-id", type=int, default=4, help="Super-Admin profile id")
+    parser.add_argument("--audit", nargs=3, type=int, metavar=("ROOM_A", "ROOM_B", "DC"),
+                        help="only run the datacenter inventory checks (fixture of glpi_actions.php audit-fixture)")
     args = parser.parse_args()
 
     c = Client(args.base)
+    if args.audit:
+        if not login(c):
+            print("login form not found")
+            return 1
+        audit_checks(c, *args.audit)
+        print(f"\n{len(FAILS)} UI check(s) failed" if FAILS else "\nUI smoke OK")
+        return 1 if FAILS else 0
+    if args.alert_id is None or args.computer_id is None:
+        parser.error("--alert-id and --computer-id are required (or --audit)")
     status, html = c.get("/index.php")
     name_field = re.search(r'id="login_name" name="([^"]+)"', html)
     pass_field = re.search(r'id="login_password" name="([^"]+)"', html)

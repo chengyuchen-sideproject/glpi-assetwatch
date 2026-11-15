@@ -25,6 +25,9 @@ digest (listing only its machines), and one-shot change e-mails go to all of the
 The plugin only **reads** GLPI data: it never connects to your machines and never
 modifies assets.
 
+Since 2.2 it also gives a **datacenter inventory** page (each server room rack by rack, with
+live status and the discrepancies to check on site) and a **Server room** dashboard filter.
+
 ## Requirements / compatibility
 
 | | Supported | Tested |
@@ -79,13 +82,13 @@ to install or run it, so it only has to be carried in.
    its `.sha256` file from the
    [Releases](https://github.com/chengyuchen-sideproject/glpi-assetwatch/releases) page
    (or build it from a checkout:
-   `git archive --format=tar.gz --prefix=assetwatch/ -o assetwatch-2.1.0.tar.gz v2.1.0`).
+   `git archive --format=tar.gz --prefix=assetwatch/ -o assetwatch-2.2.0.tar.gz v2.2.0`).
    Avoid GitHub's "Download ZIP": its folder is named `glpi-assetwatch-main` and must be renamed.
 2. Copy both files to the GLPI host, then:
 
    ```bash
-   sha256sum -c assetwatch-2.1.0.tar.gz.sha256
-   tar -xzf assetwatch-2.1.0.tar.gz -C ./glpi_plugins     # creates glpi_plugins/assetwatch
+   sha256sum -c assetwatch-2.2.0.tar.gz.sha256
+   tar -xzf assetwatch-2.2.0.tar.gz -C ./glpi_plugins     # creates glpi_plugins/assetwatch
    chmod -R a+rX ./glpi_plugins/assetwatch                # readable by www-data (uid 33)
    ```
 
@@ -143,10 +146,55 @@ another chart type or removed.
 | Open alerts by type | same | no inventory, disk | matching list |
 | Offline computers (list) | search list | which machines, since when, group in charge | - |
 | Change events (last 30 days) | bars / line | hardware, identity and rack changes per day; the card "limit" = number of recent days shown | - |
+| Assets to check on site (inventory) (2.2) | big number | assets with a discrepancy in the filtered room (or all rooms) | inventory page |
 
 - Numbers follow the active **entities**; users without the "Asset alerts: Read" right do not
   get the cards (the "Asset Watch" dashboard is shared with the profiles having that right).
 - The "Asset Watch" dashboard is created only once: your layout changes are never overwritten.
+- **Filters** (since 2.2): the cards follow the dashboard filters that apply to computers —
+  GLPI's *Location*, *Technician group*, *Status*, *Manufacturer*... and the plugin's
+  **Server room** filter (assets in the racks of the room, plus the computers whose location
+  is the room's). Add it with the filter icon of the dashboard toolbar; it also works on GLPI's
+  own cards of computers, network equipment, PDUs... With a filter set, alert cards only count
+  computer alerts.
+- **Assets to check on site** (2.2): number of assets with a discrepancy (see *Datacenter
+  inventory* below), in the room of the *Server room* filter or in all rooms; click opens the
+  inventory page. Existing "Asset Watch" dashboards do not get it automatically: add it with
+  "Edit" > "+".
+
+### Datacenter inventory (since 2.2)
+
+**Tools > Datacenter inventory** shows what a server room really holds, for audits and site
+visits. Pick a room, a whole datacenter, all rooms, or "computers in no rack and without
+location":
+
+- **Rack by rack, top U first**: every asset placed in the racks of the room (computers,
+  network equipment, PDUs, enclosures, passive equipment...), with type, serial, model,
+  IP addresses, last inventory, technical groups and a hardware summary (memory, CPUs,
+  drives, from the plugin baseline).
+- A **status** per asset: *Healthy*, *Low disk space*, *Offline* (no-inventory threshold),
+  *Probably removed* (no inventory for **30 days**, adjustable), *No agent* (never inventoried;
+  normal for PDUs or passive equipment).
+- A **"To check on site"** list with the discrepancies:
+
+| Discrepancy | Meaning |
+|---|---|
+| In a rack, never reported | computer placed in a rack, GLPI Agent never sent its inventory |
+| Probably removed | last inventory older than the threshold |
+| Not in a rack | reporting computer whose location is the room's (or below), placed in no rack |
+| Duplicate serial number | another asset of the same type has the same serial |
+| No technical group | nobody receives the alerts of this computer |
+| Address outside the room networks | none of its IPs is in the networks set for the room (computers, network equipment) |
+
+- **Export CSV** (UTF-8 with BOM, opens directly in Excel) and **Print** (print-friendly layout).
+- A room holds the assets of **its racks** plus the reporting computers in no rack whose
+  **location** is the room location or below it (the deepest matching room wins). Set a
+  location on each server room (Assets > Datacenters > server room) to use the latter.
+- Room networks and the "probably removed" threshold: **Setup > Plugins > Asset Watch**,
+  section *Datacenter inventory* (one network per line, e.g. `10.1.0.0/16`; IPv6 works too;
+  invalid entries are shown and ignored; empty = not checked).
+- Same right as the alert list ("Asset alerts: Read"); only rooms, racks and assets of the
+  active entities are shown. Read only, no e-mail.
 
 ### Automatic actions
 

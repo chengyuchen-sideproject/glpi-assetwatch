@@ -7,6 +7,8 @@
  */
 
 use Glpi\Dashboard\Dashboard;
+use Glpi\Dashboard\Filter;
+use Glpi\Dashboard\Provider;
 use GlpiPlugin\Assetwatch\Core\FleetStatus;
 
 if (!defined('GLPI_ROOT')) {
@@ -18,8 +20,9 @@ if (!defined('GLPI_ROOT')) {
  *
  * Every card can be added to, moved in or removed from any dashboard by the users; the plugin
  * also creates an "Asset Watch" dashboard with all of them as a starting point.
- * Numbers follow the entities of the current session; cards stay empty without the
- * "Asset alerts: Read" right.
+ * Numbers follow the entities of the current session and the dashboard filters that apply to
+ * computers (location, technician group, state, manufacturer... and the plugin's "Server room"
+ * filter); cards stay empty without the "Asset alerts: Read" right.
  */
 class PluginAssetwatchDashboard
 {
@@ -37,8 +40,8 @@ class PluginAssetwatchDashboard
     private const COLOR_DISK    = '#f0a028';
     private const COLOR_NEUTRAL = '#5c7aa8';
 
-    /** @var array{total: int, offline: int, disk_low: int, healthy: int, offline_ids: int[]}|null */
-    private static ?array $fleet = null;
+    /** @var array<string, array{total: int, offline: int, disk_low: int, healthy: int, offline_ids: int[], ids: int[]}> per filter set */
+    private static array $fleet = [];
 
     /**
      * Hook "dashboard_cards". GLPI chains the plugins: $cards holds the cards of the plugins called
@@ -55,9 +58,11 @@ class PluginAssetwatchDashboard
             return $cards;
         }
 
-        $group  = __('Asset Watch', 'assetwatch');
-        $charts = ['summaryNumbers', 'multipleNumber', 'pie', 'donut', 'halfdonut', 'bar', 'hbar'];
-        $p      = self::CARD_PREFIX;
+        $group   = __('Asset Watch', 'assetwatch');
+        $charts  = ['summaryNumbers', 'multipleNumber', 'pie', 'donut', 'halfdonut', 'bar', 'hbar'];
+        $p       = self::CARD_PREFIX;
+        // Filters that change the numbers (GLPI highlights the cards they apply to).
+        $filters = Filter::getAppliableFilters('glpi_computers');
 
         $cards[$p . 'monitored'] = [
             'widgettype' => ['bigNumber'],
@@ -108,6 +113,17 @@ class PluginAssetwatchDashboard
             'label'      => sprintf(__('Change events (last %d days)', 'assetwatch'), self::TREND_DAYS),
             'provider'   => self::class . '::changes',
         ];
+        $cards[$p . 'auditissues'] = [
+            'widgettype' => ['bigNumber'],
+            'group'      => $group,
+            'label'      => __('Assets to check on site (inventory)', 'assetwatch'),
+            'provider'   => self::class . '::auditIssues',
+        ];
+        foreach ($cards as $id => $card) {
+            if (str_starts_with($id, $p)) {
+                $cards[$id]['filters'] = $id === $p . 'auditissues' ? [PluginAssetwatchRoomFilter::getId()] : $filters;
+            }
+        }
         return $cards;
     }
 
@@ -123,7 +139,7 @@ class PluginAssetwatchDashboard
     public static function monitored(array $params = []): array
     {
         return [
-            'number' => self::fleet()['total'],
+            'number' => self::fleet($params)['total'],
             'url'    => Computer::getSearchURL(),
             'label'  => $params['label'] ?? __('Monitored computers', 'assetwatch'),
             'icon'   => Computer::getIcon(),
@@ -138,7 +154,7 @@ class PluginAssetwatchDashboard
     public static function offline(array $params = []): array
     {
         return [
-            'number' => self::fleet()['offline'],
+            'number' => self::fleet($params)['offline'],
             'url'    => self::alertListUrl(PluginAssetwatchAlert::TYPE_NO_REPORT),
             'label'  => $params['label'] ?? __('Offline computers (no inventory)', 'assetwatch'),
             'icon'   => 'ti ti-plug-connected-x',
@@ -153,7 +169,7 @@ class PluginAssetwatchDashboard
     public static function diskLow(array $params = []): array
     {
         return [
-            'number' => self::fleet()['disk_low'],
+            'number' => self::fleet($params)['disk_low'],
             'url'    => self::alertListUrl(PluginAssetwatchAlert::TYPE_DISK_LOW),
             'label'  => $params['label'] ?? __('Computers with low disk space', 'assetwatch'),
             'icon'   => 'ti ti-database-exclamation',
@@ -168,7 +184,7 @@ class PluginAssetwatchDashboard
     public static function openAlerts(array $params = []): array
     {
         return [
-            'number' => array_sum(self::openAlertsByType()),
+            'number' => array_sum(self::openAlertsByType($params)),
             'url'    => self::alertListUrl(null),
             'label'  => $params['label'] ?? __('Open alerts', 'assetwatch'),
             'icon'   => PluginAssetwatchAlert::getIcon(),
@@ -182,7 +198,7 @@ class PluginAssetwatchDashboard
      */
     public static function health(array $params = []): array
     {
-        $fleet = self::fleet();
+        $fleet = self::fleet($params);
         $data = [];
         if ($fleet['total'] > 0) {
             $data = [
@@ -206,7 +222,7 @@ class PluginAssetwatchDashboard
     public static function byType(array $params = []): array
     {
         $data = [];
-        foreach (self::openAlertsByType() as $type => $count) {
+        foreach (self::openAlertsByType($params) as $type => $count) {
             if ($count > 0) {
                 $data[] = [
                     'label'  => PluginAssetwatchAlert::typeLabel($type),
@@ -232,11 +248,14 @@ class PluginAssetwatchDashboard
     public static function offlineList(array $params = []): array
     {
         return [
-            'number'     => self::fleet()['offline'],
+            'number'     => self::fleet($params)['offline'],
             'url'        => self::alertListUrl(PluginAssetwatchAlert::TYPE_NO_REPORT),
             'label'      => $params['label'] ?? __('Offline computers (list)', 'assetwatch'),
             'icon'       => 'ti ti-plug-connected-x',
-            's_criteria' => self::openCriteria(PluginAssetwatchAlert::TYPE_NO_REPORT),
+            's_criteria' => array_merge(
+                self::openCriteria(PluginAssetwatchAlert::TYPE_NO_REPORT),
+                self::alertIdCriteria($params, PluginAssetwatchAlert::TYPE_NO_REPORT)
+            ),
             'itemtype'   => PluginAssetwatchAlert::class,
         ];
     }
@@ -263,7 +282,7 @@ class PluginAssetwatchDashboard
                 'WHERE'  => [
                     'status'        => PluginAssetwatchAlert::STATUS_EVENT,
                     'date_creation' => ['>=', $from],
-                ] + getEntitiesRestrictCriteria(PluginAssetwatchAlert::getTable()),
+                ] + self::filteredAlertCriteria($params) + getEntitiesRestrictCriteria(PluginAssetwatchAlert::getTable()),
             ]);
             foreach ($iterator as $row) {
                 $dates[] = (string) $row['date_creation'];
@@ -279,6 +298,31 @@ class PluginAssetwatchDashboard
             'icon'        => 'ti ti-arrows-exchange',
             // Time series: GLPI then keeps the LAST "limit" points (most recent days) instead of the first ones.
             'distributed' => false,
+        ];
+    }
+
+    /**
+     * Assets with at least one inventory discrepancy, in the room of the "Server room" filter
+     * (all rooms without it). Links to the inventory page.
+     *
+     * @param array<string, mixed> $params
+     *
+     * @return array<string, mixed>
+     */
+    public static function auditIssues(array $params = []): array
+    {
+        $room = (int) (($params['apply_filters'] ?? [])[PluginAssetwatchRoomFilter::getId()] ?? 0);
+        $count = 0;
+        if (self::canView()) {
+            $rooms = PluginAssetwatchAudit::rooms();
+            $ids = $room > 0 ? (isset($rooms[$room]) ? [$room] : []) : array_keys($rooms);
+            $count = $ids !== [] ? PluginAssetwatchAudit::collect($ids)['items_with_issues'] : 0;
+        }
+        return [
+            'number' => $count,
+            'url'    => PluginAssetwatchAudit::getSearchURL() . '?scope=' . ($room > 0 ? 'room:' . $room : 'all'),
+            'label'  => $params['label'] ?? __('Assets to check on site (inventory)', 'assetwatch'),
+            'icon'   => PluginAssetwatchAudit::getIcon(),
         ];
     }
 
@@ -300,6 +344,7 @@ class PluginAssetwatchDashboard
             ['offline', 5, 0, 5, 3, 'bigNumber', self::COLOR_OFFLINE],
             ['disklow', 10, 0, 5, 3, 'bigNumber', self::COLOR_DISK],
             ['openalerts', 15, 0, 5, 3, 'bigNumber', '#7f7f7f'],
+            ['auditissues', 20, 0, 6, 3, 'bigNumber', '#e8710a'],
             ['health', 0, 3, 8, 6, 'donut', '#ffffff'],
             ['bytype', 8, 3, 8, 6, 'bar', '#ffffff'],
             ['changes', 16, 3, 10, 6, 'bar', '#ffffff'],
@@ -378,61 +423,153 @@ class PluginAssetwatchDashboard
     }
 
     /**
-     * Monitored computers of the active entities, classified (computed once per request).
+     * Dashboard filter values that are set (empty ones are ignored).
      *
-     * @return array{total: int, offline: int, disk_low: int, healthy: int, offline_ids: int[]}
+     * @param array<string, mixed> $params
+     *
+     * @return array<string, mixed>
      */
-    private static function fleet(): array
+    private static function activeFilters(array $params): array
+    {
+        $filters = $params['apply_filters'] ?? [];
+        if (!is_array($filters)) {
+            return [];
+        }
+        return array_filter($filters, static function ($value): bool {
+            if (is_array($value)) {
+                return array_filter($value, static fn ($v): bool => $v !== '' && $v !== null) !== [];
+            }
+            return $value !== '' && $value !== null && $value !== '0' && $value !== 0;
+        });
+    }
+
+    /**
+     * Monitored computers of the active entities matching the dashboard filters, classified
+     * (computed once per request and filter set).
+     *
+     * @param array<string, mixed> $params
+     *
+     * @return array{total: int, offline: int, disk_low: int, healthy: int, offline_ids: int[], ids: int[]}
+     */
+    private static function fleet(array $params = []): array
     {
         /** @var DBmysql $DB */
         global $DB;
 
-        if (self::$fleet !== null) {
-            return self::$fleet;
+        $filters = self::activeFilters($params);
+        $key = md5((string) json_encode($filters));
+        if (isset(self::$fleet[$key])) {
+            return self::$fleet[$key];
         }
         if (!self::canView()) {
-            return self::$fleet = FleetStatus::summarize([], [], new DateTimeImmutable(), PluginAssetwatchConfig::getSettings());
+            return self::$fleet[$key] = FleetStatus::summarize([], [], new DateTimeImmutable(), PluginAssetwatchConfig::getSettings()) + ['ids' => []];
         }
 
-        $computers = [];
-        foreach ($DB->request([
-            'SELECT' => ['id', 'last_inventory_update', 'computertypes_id'],
-            'FROM'   => 'glpi_computers',
-            'WHERE'  => [
-                'is_deleted'  => 0,
-                'is_template' => 0,
-                'is_dynamic'  => 1,
+        $criteria = [
+            'SELECT'   => ['glpi_computers.id', 'glpi_computers.last_inventory_update', 'glpi_computers.computertypes_id'],
+            'DISTINCT' => true,
+            'FROM'     => 'glpi_computers',
+            'WHERE'    => [
+                'glpi_computers.is_deleted'  => 0,
+                'glpi_computers.is_template' => 0,
+                'glpi_computers.is_dynamic'  => 1,
             ] + getEntitiesRestrictCriteria('glpi_computers'),
-        ]) as $row) {
+        ];
+        if ($filters !== []) {
+            $filter_criteria = Provider::getFiltersCriteria('glpi_computers', $filters);
+            if (!empty($filter_criteria['WHERE'])) {
+                $criteria['WHERE'][] = $filter_criteria['WHERE'];
+            }
+            if (!empty($filter_criteria['LEFT JOIN'])) {
+                $criteria['LEFT JOIN'] = $filter_criteria['LEFT JOIN'];
+            }
+        }
+        $computers = [];
+        foreach ($DB->request($criteria) as $row) {
             $computers[(int) $row['id']] = $row;
         }
 
         $disk_low = [];
-        foreach ($DB->request([
-            'SELECT'   => ['items_id'],
-            'DISTINCT' => true,
-            'FROM'     => PluginAssetwatchAlert::getTable(),
-            'WHERE'    => [
-                'itemtype'   => 'Computer',
-                'alert_type' => PluginAssetwatchAlert::TYPE_DISK_LOW,
-                'status'     => [PluginAssetwatchAlert::STATUS_ACTIVE, PluginAssetwatchAlert::STATUS_ACKNOWLEDGED],
-            ],
-        ]) as $row) {
-            $disk_low[] = (int) $row['items_id'];
+        if ($computers !== []) {
+            foreach ($DB->request([
+                'SELECT'   => ['items_id'],
+                'DISTINCT' => true,
+                'FROM'     => PluginAssetwatchAlert::getTable(),
+                'WHERE'    => [
+                    'itemtype'   => 'Computer',
+                    'alert_type' => PluginAssetwatchAlert::TYPE_DISK_LOW,
+                    'status'     => [PluginAssetwatchAlert::STATUS_ACTIVE, PluginAssetwatchAlert::STATUS_ACKNOWLEDGED],
+                ],
+            ]) as $row) {
+                $disk_low[] = (int) $row['items_id'];
+            }
         }
 
-        return self::$fleet = FleetStatus::summarize(
+        return self::$fleet[$key] = FleetStatus::summarize(
             $computers,
             $disk_low,
             new DateTimeImmutable(self::now()),
             PluginAssetwatchConfig::getSettings()
-        );
+        ) + ['ids' => array_keys($computers)];
     }
 
     /**
+     * With dashboard filters set: only the alerts of the matching computers.
+     *
+     * @param array<string, mixed> $params
+     *
+     * @return array<string, mixed>
+     */
+    private static function filteredAlertCriteria(array $params): array
+    {
+        if (self::activeFilters($params) === []) {
+            return [];
+        }
+        $ids = self::fleet($params)['ids'];
+        return ['itemtype' => 'Computer', 'items_id' => $ids !== [] ? $ids : [0]];
+    }
+
+    /**
+     * Search criteria restricting a list card to the open alerts of the filtered computers.
+     *
+     * @param array<string, mixed> $params
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private static function alertIdCriteria(array $params, string $type): array
+    {
+        /** @var DBmysql $DB */
+        global $DB;
+
+        $where = self::filteredAlertCriteria($params);
+        if ($where === []) {
+            return [];
+        }
+        $ids = [];
+        foreach ($DB->request([
+            'SELECT' => 'id',
+            'FROM'   => PluginAssetwatchAlert::getTable(),
+            'WHERE'  => $where + [
+                'alert_type' => $type,
+                'status'     => [PluginAssetwatchAlert::STATUS_ACTIVE, PluginAssetwatchAlert::STATUS_ACKNOWLEDGED],
+            ],
+        ]) as $row) {
+            $ids[] = (int) $row['id'];
+        }
+        $or = [];
+        foreach ($ids !== [] ? $ids : [0] as $i => $id) {
+            // search option 2 = alert id
+            $or[] = ['link' => $i === 0 ? 'AND' : 'OR', 'field' => 2, 'searchtype' => 'equals', 'value' => $id];
+        }
+        return [['link' => 'AND', 'criteria' => $or]];
+    }
+
+    /**
+     * @param array<string, mixed> $params
+     *
      * @return array<string, int> alert type => number of open (active or acknowledged) alerts
      */
-    private static function openAlertsByType(): array
+    private static function openAlertsByType(array $params = []): array
     {
         /** @var DBmysql $DB */
         global $DB;
@@ -449,7 +586,7 @@ class PluginAssetwatchDashboard
             'FROM'   => PluginAssetwatchAlert::getTable(),
             'WHERE'  => [
                 'status' => [PluginAssetwatchAlert::STATUS_ACTIVE, PluginAssetwatchAlert::STATUS_ACKNOWLEDGED],
-            ] + getEntitiesRestrictCriteria(PluginAssetwatchAlert::getTable()),
+            ] + self::filteredAlertCriteria($params) + getEntitiesRestrictCriteria(PluginAssetwatchAlert::getTable()),
             'GROUPBY' => 'alert_type',
         ]) as $row) {
             $counts[(string) $row['alert_type']] = (int) $row['cpt'];

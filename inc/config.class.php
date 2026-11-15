@@ -8,6 +8,7 @@
 
 use Glpi\Application\View\TemplateRenderer;
 use Glpi\DBAL\QuerySubQuery;
+use GlpiPlugin\Assetwatch\Core\Cidr;
 use GlpiPlugin\Assetwatch\Core\Settings;
 
 if (!defined('GLPI_ROOT')) {
@@ -45,6 +46,14 @@ class PluginAssetwatchConfig extends CommonGLPI
         return self::$cache;
     }
 
+    public static function getConfigUrl(): string
+    {
+        /** @var array $CFG_GLPI */
+        global $CFG_GLPI;
+
+        return $CFG_GLPI['root_doc'] . '/plugins/assetwatch/front/config.form.php';
+    }
+
     public static function resetCache(): void
     {
         self::$cache = null;
@@ -61,7 +70,7 @@ class PluginAssetwatchConfig extends CommonGLPI
         foreach (['check_noreport', 'check_disk', 'check_hardware', 'check_identity', 'check_rack'] as $flag) {
             $values[$flag] = !empty($input[$flag]) ? '1' : '0';
         }
-        foreach (['noreport_default_hours', 'reminder_days', 'retention_days'] as $int) {
+        foreach (['noreport_default_hours', 'reminder_days', 'retention_days', 'retire_days'] as $int) {
             if (isset($input[$int]) && is_numeric($input[$int])) {
                 $values[$int] = (string) (int) $input[$int];
             }
@@ -86,11 +95,22 @@ class PluginAssetwatchConfig extends CommonGLPI
         }
         $values['noreport_type_hours'] = json_encode((object) $type_hours);
 
+        // Networks per server room, as typed (invalid entries are kept so the form can show them).
+        $subnets = [];
+        foreach ((array) ($input['room_subnets'] ?? []) as $room_id => $list) {
+            $list = implode(',', Settings::splitList(str_replace(["\r", ' ', ';'], ["\n", ',', ','], (string) $list)));
+            if (is_numeric($room_id) && (int) $room_id > 0 && $list !== '') {
+                $subnets[(int) $room_id] = $list;
+            }
+        }
+        $values['room_subnets'] = json_encode((object) $subnets);
+
         // Re-validate through Settings so that the stored values are always usable.
         $settings = Settings::fromArray(array_merge(Settings::DEFAULTS, $values));
         $values['noreport_default_hours'] = (string) $settings->noReportDefaultHours;
         $values['reminder_days']          = (string) $settings->reminderDays;
         $values['retention_days']         = (string) $settings->retentionDays;
+        $values['retire_days']            = (string) $settings->retireDays;
         $values['disk_min_free_percent']  = (string) $settings->diskMinFreePercent;
         $values['disk_min_free_gb']       = (string) $settings->diskMinFreeGb;
 
@@ -175,9 +195,20 @@ class PluginAssetwatchConfig extends CommonGLPI
             ];
         }
 
+        $rooms = [];
+        foreach (PluginAssetwatchAudit::rooms() as $room) {
+            $list = $settings->roomSubnets[$room['id']] ?? '';
+            $rooms[] = $room + [
+                'subnets' => str_replace(',', "\n", $list),
+                'invalid' => Cidr::parseList($list)['invalid'],
+            ];
+        }
+
         TemplateRenderer::getInstance()->display('@assetwatch/config.html.twig', [
             'settings'    => $settings,
             'types'       => $types,
+            'rooms'       => $rooms,
+            'audit_url'   => PluginAssetwatchAudit::getSearchURL(),
             'checks'      => self::healthChecks(),
             'monitored'   => countElementsInTable('glpi_computers', ['is_deleted' => 0, 'is_template' => 0, 'is_dynamic' => 1]),
             'form_url'    => $CFG_GLPI['root_doc'] . '/plugins/assetwatch/front/config.form.php',

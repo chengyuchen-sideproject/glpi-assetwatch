@@ -27,6 +27,10 @@ foreach (glob(__DIR__ . '/../inc/*.class.php') as $file) {
         continue;
     }
     [, $class, $parent] = $m;
+    // Resolve "use" imports (e.g. Glpi\Dashboard\Filters\AbstractFilter) through the loaded class.
+    if (class_exists($class) && get_parent_class($class) !== false) {
+        $parent = get_parent_class($class);
+    }
     if (!class_exists($parent)) {
         echo "?? $class: parent $parent not found\n";
         $problems++;

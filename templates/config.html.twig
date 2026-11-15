@@ -98,6 +98,35 @@
       </div>
 
       <div class="card mb-3">
+         <div class="card-header"><h3 class="card-title">{{ __('Datacenter inventory', 'assetwatch') }}</h3></div>
+         <div class="card-body">
+            <p class="text-muted">{{ __('Used by the inventory page (Tools > Datacenter inventory) and its dashboard card; no e-mail is sent.', 'assetwatch') }} <a href="{{ audit_url }}">{{ __('Open the inventory page', 'assetwatch') }}</a></p>
+            <div class="mb-3">
+               <label class="form-label" for="retire_days">{{ __('"Probably removed" after (days without inventory)', 'assetwatch') }}</label>
+               <input class="form-control" style="max-width: 10rem" type="number" min="1" id="retire_days" name="retire_days" value="{{ settings.retireDays }}">
+            </div>
+            <label class="form-label">{{ __('Networks of each server room (one per line, e.g. 10.1.0.0/16; empty = not checked)', 'assetwatch') }}</label>
+            {% if rooms is empty %}
+               <p class="text-muted mb-0">{{ __('No server room yet (Assets > Datacenters).', 'assetwatch') }}</p>
+            {% else %}
+               <table class="table table-sm">
+                  {% for room in rooms %}
+                     <tr>
+                        <td style="width: 40%">{{ room.datacenter }} / {{ room.name }}</td>
+                        <td>
+                           <textarea class="form-control form-control-sm" rows="2" name="room_subnets[{{ room.id }}]" placeholder="10.1.0.0/16">{{ room.subnets }}</textarea>
+                           {% if room.invalid is not empty %}
+                              <div class="text-danger small">{{ __('Ignored (not a network): %s', 'assetwatch')|format(room.invalid|join(', ')) }}</div>
+                           {% endif %}
+                        </td>
+                     </tr>
+                  {% endfor %}
+               </table>
+            {% endif %}
+         </div>
+      </div>
+
+      <div class="card mb-3">
          <div class="card-header"><h3 class="card-title">{{ __('Notifications and history', 'assetwatch') }}</h3></div>
          <div class="card-body">
             <div class="row mb-3">
